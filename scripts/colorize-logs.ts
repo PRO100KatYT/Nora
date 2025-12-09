@@ -29,6 +29,35 @@ import 'dotenv/config';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
+import c from 'yoctocolors';
+
+// Detect color support by testing if colors actually work
+const colorsEnabled = (() => {
+	try {
+		const test = c.red('test');
+		return test !== 'test'; // If colors work, the output should be different from input
+	} catch {
+		return false;
+	}
+})();
+
+// Fallback color functions that use symbols/text when colors aren't available
+function safeColor(colorFn: (text: string) => string, fallback: string) {
+	return colorsEnabled ? colorFn : (text: string) => `${fallback}${text}`;
+}
+
+// Safe color functions
+const safeRed = safeColor(c.red, '[RED]');
+const safeGreen = safeColor(c.green, '[GREEN]');
+const safeBlue = safeColor(c.blue, '[BLUE]');
+const safeYellow = safeColor(c.yellow, '[YELLOW]');
+const safeDim = safeColor(c.dim, '');
+const safeBold = safeColor(c.bold, '**');
+const safeBgRed = safeColor(c.bgRed, '[ERROR]');
+const safeBgYellow = safeColor(c.bgYellow, '[WARN]');
+const safeBgBlue = safeColor(c.bgBlue, '[INFO]');
+const safeBgCyan = safeColor(c.bgCyan, '[DEBUG]');
+const safeBgGray = safeColor(c.bgGray, '[VERBOSE]');
 
 // Types
 type LogLevel = 'error' | 'warn' | 'warning' | 'info' | 'debug' | 'verbose';
@@ -48,18 +77,6 @@ interface LogFile {
 	stats?: fs.Stats;
 }
 
-interface Colors {
-	reset: string;
-	red: string;
-	yellow: string;
-	green: string;
-	gray: string;
-	cyan: string;
-	magenta: string;
-	white: string;
-	black: string;
-}
-
 // Constants
 const APPDATA = process.env.APPDATA || process.env.HOME || '.';
 const DEFAULT_LOG_DIR = path.join(APPDATA, 'nora', 'logs');
@@ -68,33 +85,21 @@ const TAIL_LINE_COUNT = 100;
 const POLL_INTERVAL_MS = 1000;
 const DEFAULT_DEPTH = 3;
 
-const colors: Colors = {
-	reset: '\x1b[0m',
-	red: '\x1b[31m',
-	yellow: '\x1b[33m',
-	green: '\x1b[32m',
-	gray: '\x1b[90m',
-	cyan: '\x1b[36m',
-	magenta: '\x1b[35m',
-	white: '\x1b[37m',
-	black: '\x1b[30m',
-};
-
-// Additional styling
+// Additional styling using safe color functions
 const styles = {
-	bold: '\x1b[1m',
-	dim: '\x1b[2m',
-	brightGreen: '\x1b[92m',
-	brightBlue: '\x1b[94m',
-	brightCyan: '\x1b[96m',
-	brightYellow: '\x1b[93m',
-	brightRed: '\x1b[91m',
-	brightMagenta: '\x1b[95m',
-	bgGreen: '\x1b[42m',
-	bgBlue: '\x1b[44m',
-	bgCyan: '\x1b[46m',
-	bgRed: '\x1b[41m',
-	bgYellow: '\x1b[43m',
+	bold: safeBold,
+	dim: safeDim,
+	brightGreen: safeGreen,
+	brightBlue: safeBlue,
+	brightCyan: safeColor(c.cyan, '[CYAN]'),
+	brightYellow: safeYellow,
+	brightRed: safeRed,
+	brightMagenta: safeColor(c.magenta, '[MAGENTA]'),
+	bgGreen: safeColor(c.bgGreen, '[SUCCESS]'),
+	bgBlue: safeBgBlue,
+	bgCyan: safeBgCyan,
+	bgRed: safeBgRed,
+	bgYellow: safeBgYellow,
 };
 
 // CLI argument parsing
@@ -178,7 +183,7 @@ function getFileMetadata(file: LogFile): string {
 	const mtime = new Date(file.stats.mtimeMs).toLocaleString();
 	const birthtime = new Date(file.stats.birthtime).toLocaleString();
 
-	return `${styles.brightCyan}Lines:${colors.reset} ${lines} ${styles.dim}|${colors.reset} ${styles.brightCyan}Size:${colors.reset} ${sizeKB}KB ${styles.dim}|${colors.reset} ${styles.brightCyan}Modified:${colors.reset} ${mtime} ${styles.dim}|${colors.reset} ${styles.brightCyan}Created:${colors.reset} ${birthtime}`;
+	return `${safeColor(c.cyan, '[CYAN]')('Lines:')} ${lines} ${safeDim('|')} ${safeColor(c.cyan, '[CYAN]')('Size:')} ${sizeKB}KB ${safeDim('|')} ${safeColor(c.cyan, '[CYAN]')('Modified:')} ${mtime} ${safeDim('|')} ${safeColor(c.cyan, '[CYAN]')('Created:')} ${birthtime}`;
 }
 
 async function promptUserToSelect(
@@ -187,16 +192,16 @@ async function promptUserToSelect(
 ): Promise<string | null> {
 	if (!files || files.length === 0) return null;
 
-	console.log(`\n${styles.bold}${styles.brightBlue}📂 Found ${files.length} log file(s) in:${colors.reset} ${styles.brightCyan}${dir}${colors.reset}\n`);
+	console.log(`\n${c.bold(c.blue('📂 Found ' + files.length + ' log file(s) in:'))} ${c.cyan(dir)}\n`);
 	files.forEach((f, idx) => {
-		const isDefault = idx === 0 ? `${styles.brightGreen}(latest - default)${colors.reset}` : '';
+		const isDefault = idx === 0 ? c.green('(latest - default)') : '';
 		const metadata = getFileMetadata(f);
-		console.log(`  ${styles.brightYellow}${idx + 1}${colors.reset}) ${styles.bold}${f.name}${colors.reset} ${isDefault}`);
+		console.log(`  ${c.yellow(idx + 1 + '')}) ${c.bold(f.name)} ${isDefault}`);
 		console.log(`     ${metadata}`);
 	});
 
 	const answer = await askQuestion(
-		`\n${styles.brightBlue}Select file${colors.reset} ${styles.dim}[${styles.brightGreen}1${styles.dim}]${colors.reset} (press ${styles.brightGreen}Enter${colors.reset} for default): `
+		`\n${c.blue('Select file')} ${c.dim('[' + c.green('1') + ']')} (press ${c.green('Enter')} for default): `
 	);
 	let choice = 1;
 
@@ -205,7 +210,7 @@ async function promptUserToSelect(
 		if (!Number.isNaN(n) && n >= 1 && n <= files.length) {
 			choice = n;
 		} else {
-			console.log(`${styles.brightRed}✗ Invalid selection${colors.reset}, using default 1.`);
+			console.log(`${c.red('✗ Invalid selection, using default 1.')}`);
 			choice = 1;
 		}
 	}
@@ -216,26 +221,26 @@ async function promptUserToSelect(
 async function pickFileInteractive(): Promise<string | null> {
 	// 1) If path provided, use it
 	if (fileArg) {
-		console.log(`${styles.brightCyan}✓ Using explicit path:${colors.reset} ${styles.bold}${fileArg}${colors.reset}`);
+		console.log(`${c.cyan('✓ Using explicit path:')} ${c.bold(fileArg)}`);
 		return path.resolve(fileArg);
 	}
 
 	// 2) Check if --use-env-log-path flag is set and LOG_PATH exists in environment
 	if (useEnvLogPath && process.env.LOG_PATH) {
-		console.log(`${styles.brightCyan}✓ Using LOG_PATH from .env:${colors.reset} ${styles.bold}${process.env.LOG_PATH}${colors.reset}`);
+		console.log(`${c.cyan('✓ Using LOG_PATH from .env:')} ${c.bold(process.env.LOG_PATH)}`);
 		const envLogDir = process.env.LOG_PATH;
 		const envFiles = findLogFilesInDir(envLogDir);
 		
 		if (envFiles.length === 0) {
-			console.error(`${styles.brightRed}✗ No log files found in ${envLogDir}${colors.reset}`);
+			console.error(`${c.red('✗ No log files found in')} ${envLogDir}`);
 			return null;
 		}
 
 		// If --show-latest flag is set, skip file selection and use the latest file
 		if (showLatest) {
 			const latestFile = envFiles[0];
-			console.log(`\n${styles.brightGreen}✓ Skipping file selection due to ${styles.bold}--show-latest${styles.brightGreen} flag${colors.reset}`);
-			console.log(`${styles.brightBlue}📄 Using latest log file:${colors.reset} ${styles.bold}${latestFile.name}${colors.reset}`);
+			console.log(`\n${c.green('✓ Skipping file selection due to')} ${c.bold('--show-latest')} ${c.green('flag')}`);
+			console.log(`${c.blue('📄 Using latest log file:')} ${c.bold(latestFile.name)}`);
 			console.log(`${getFileMetadata(latestFile)}\n`);
 			return latestFile.full;
 		}
@@ -245,15 +250,15 @@ async function pickFileInteractive(): Promise<string | null> {
 	}
 
 	// 3) Search current working directory
-	console.log(`${styles.brightBlue}🔍 Searching for logs in current directory:${colors.reset} ${styles.bold}${process.cwd()}${colors.reset}`);
+	console.log(`${c.blue('🔍 Searching for logs in current directory:')} ${c.bold(process.cwd())}`);
 	const cwd = process.cwd();
 	const cwdFiles = findLogFilesInDir(cwd);
 	
 	if (cwdFiles.length > 0) {
 		if (showLatest) {
 			const latestFile = cwdFiles[0];
-			console.log(`\n${styles.brightGreen}✓ Skipping file selection due to ${styles.bold}--show-latest${styles.brightGreen} flag${colors.reset}`);
-			console.log(`${styles.brightBlue}📄 Using latest log file:${colors.reset} ${styles.bold}${latestFile.name}${colors.reset}`);
+			console.log(`\n${c.green('✓ Skipping file selection due to')} ${c.bold('--show-latest')} ${c.green('flag')}`);
+			console.log(`${c.blue('📄 Using latest log file:')} ${c.bold(latestFile.name)}`);
 			console.log(`${getFileMetadata(latestFile)}\n`);
 			return latestFile.full;
 		}
@@ -262,14 +267,14 @@ async function pickFileInteractive(): Promise<string | null> {
 	}
 
 	// 4) Fallback to default appdata log directory
-	console.log(`${styles.brightBlue}🔍 Searching for logs in default directory:${colors.reset} ${styles.bold}${DEFAULT_LOG_DIR}${colors.reset}`);
+	console.log(`${c.blue('🔍 Searching for logs in default directory:')} ${c.bold(DEFAULT_LOG_DIR)}`);
 	const appFiles = findLogFilesInDir(DEFAULT_LOG_DIR);
 	
 	if (appFiles.length > 0) {
 		if (showLatest) {
 			const latestFile = appFiles[0];
-			console.log(`\n${styles.brightGreen}✓ Skipping file selection due to ${styles.bold}--show-latest${styles.brightGreen} flag${colors.reset}`);
-			console.log(`${styles.brightBlue}📄 Using latest log file:${colors.reset} ${styles.bold}${latestFile.name}${colors.reset}`);
+			console.log(`\n${c.green('✓ Skipping file selection due to')} ${c.bold('--show-latest')} ${c.green('flag')}`);
+			console.log(`${c.blue('📄 Using latest log file:')} ${c.bold(latestFile.name)}`);
 			console.log(`${getFileMetadata(latestFile)}\n`);
 			return latestFile.full;
 		}
@@ -281,23 +286,23 @@ async function pickFileInteractive(): Promise<string | null> {
 }
 
 // Colorization
-function colorForLevel(level?: string): string {
-	if (!level) return colors.white;
+function colorForLevel(level?: string) {
+	if (!level) return (text: string) => text;
 
 	switch (level.toLowerCase()) {
 		case 'error':
-			return colors.red;
+			return safeRed;
 		case 'warn':
 		case 'warning':
-			return colors.yellow;
+			return safeYellow;
 		case 'info':
-			return colors.green;
+			return safeGreen;
 		case 'debug':
-			return colors.gray;
+			return safeDim;
 		case 'verbose':
-			return colors.cyan;
+			return safeColor(c.cyan, '[CYAN]');
 		default:
-			return colors.white;
+			return (text: string) => text;
 	}
 }
 
@@ -305,34 +310,34 @@ function highlightJSON(json: string): string {
 	let highlighted = json;
 
 	// First, handle brackets and structural characters with dim color
-	highlighted = highlighted.replace(/([{}[\],])/g, `${styles.brightYellow}$1${colors.reset}`);
+	highlighted = highlighted.replace(/([{}[\],])/g, safeYellow('$1'));
 
 	// Apply key coloring (quoted strings followed by colon) - need to escape the dim colons
 	highlighted = highlighted.replace(/"([^"\\]|\\.)*"\s*:/g, (match) => {
         const key = match.match(/"([^"\\]|\\.)*"/)?.[0] || '';
-        return `${styles.brightRed}${key}${colors.reset}${styles.dim}:${colors.reset}`;
+        return safeRed(key) + safeDim(':');
     });
 
 	// Apply string value coloring (quoted strings not preceded by opening quote + colon pattern)
 	highlighted = highlighted.replace(/:\s*"([^"\\]|\\.)*"/g, (match) => {
 		const colonPart = match.match(/^:\s*/)?.[0] || ': ';
 		const stringPart = match.substring(colonPart.length);
-		return `${styles.dim}:${colors.reset} ${styles.brightGreen}${stringPart}${colors.reset}`;
+		return safeDim(':');
 	});
 
 	// Apply number coloring (only standalone numbers after colons)
 	highlighted = highlighted.replace(/:\s*(-?\d+\.?\d*(?:[eE][+-]?\d+)?)\b/g, (match, num) => {
-		return `${styles.brightYellow}:${colors.reset} ${styles.brightYellow}${num}${colors.reset}`;
+		return safeYellow(':') + ' ' + safeYellow(num);
 	});
 
 	// Apply boolean coloring
 	highlighted = highlighted.replace(/:\s*(true|false)\b/g, (match, bool) => {
-		return `${styles.brightBlue}:${colors.reset} ${styles.brightYellow}${bool}${colors.reset}`;
+		return safeBlue(':') + ' ' + safeYellow(bool);
 	});
 
 	// Apply null coloring
 	highlighted = highlighted.replace(/:\s*(null)\b/g, (match, nullVal) => {
-		return `${styles.brightBlue}:${colors.reset} ${styles.brightRed}${nullVal}${colors.reset}`;
+		return safeBlue(':') + ' ' + safeRed(nullVal);
 	});
 
 	return highlighted;
@@ -345,7 +350,7 @@ function processLine(line: string): void {
 	try {
 		obj = JSON.parse(line) as LogEntry;
 	} catch (error) {
-		console.log(colors.magenta + line + colors.reset);
+		console.log(c.magenta(line));
 		return;
 	}
 
@@ -363,32 +368,31 @@ function processLine(line: string): void {
 	const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}.${String(now.getMilliseconds()).padStart(3, '0')}`;
 
 	// Color-coded level badges
-	let levelColor = colorForLevel(level);
 	let levelBadge = '';
 	
 	switch (level.toLowerCase()) {
 		case 'error':
-			levelBadge = `${styles.bgRed}${styles.bold} ERROR ${colors.reset}`;
+			levelBadge = c.bold(c.bgRed(c.white(' ERROR ')));
 			break;
 		case 'warn':
 		case 'warning':
-			levelBadge = `${styles.bgYellow}${colors.black}${styles.bold}   WARN   ${colors.reset}`;
+			levelBadge = c.bold(c.bgYellow(c.black('   WARN   ')));
 			break;
 		case 'info':
-			levelBadge = `${styles.bgGreen}${colors.black}${styles.bold}  INFO   ${colors.reset}`;
+			levelBadge = c.bold(c.bgGreen(c.black('  INFO   ')));
 			break;
 		case 'debug':
-			levelBadge = `${styles.bgCyan}${colors.black}${styles.bold}  DEBUG  ${colors.reset}`;
+			levelBadge = c.bold(c.bgCyan(c.black('  DEBUG  ')));
 			break;
 		case 'verbose':
-			levelBadge = `${styles.bgBlue}${styles.bold} VERBOSE ${colors.reset}`;
+			levelBadge = c.bold(c.bgBlue(c.white(' VERBOSE ')));
 			break;
 		default:
-			levelBadge = `${styles.dim}${level.toUpperCase().padEnd(7)}${colors.reset}`;
+			levelBadge = c.dim(level.toUpperCase().padEnd(7));
 	}
 
-	const procBadge = `${styles.dim}[${colors.reset}${styles.brightMagenta}${proc}${colors.reset}${styles.dim}]${colors.reset}`;
-	const timestampStr = `${styles.dim}[${colors.reset}${styles.brightCyan}${timestamp}${colors.reset}${styles.dim}]${colors.reset}`;
+	const procBadge = c.dim(`[${c.magenta(proc)}]`);
+	const timestampStr = c.dim(`[${c.cyan(timestamp)}]`);
 
 	const header = `${timestampStr} ${procBadge} ${levelBadge} ${msg}`;
 	console.log(header);
