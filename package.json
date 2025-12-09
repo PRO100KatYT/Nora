@@ -115,6 +115,7 @@
     "db:studio": "drizzle-kit studio --verbose",
     "db:seed": "drizzle-kit seed",
     "db:drop": "node ./scripts/dropDatabase.ts",
+    "logs": "node ./scripts/colorize-logs.ts --use-env-log-path",
     "renderer:generate-routes": "tsr generate",
     "renderer:watch-routes": "tsr watch",
     "preversion": "npm test",
