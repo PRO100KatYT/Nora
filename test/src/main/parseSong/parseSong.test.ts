@@ -222,10 +222,10 @@ describe('parseSong', () => {
 
       const { dataUpdateEvent } = await import('../../../../src/main/main');
       
-      expectDataUpdateEventCalledWith(dataUpdateEvent, 'songs/newSong', ['1']);
-      expectDataUpdateEventCalledWith(dataUpdateEvent, 'artists/newArtist', ['1']);
-      expectDataUpdateEventCalledWith(dataUpdateEvent, 'albums/newAlbum', ['1']);
-      expectDataUpdateEventCalledWith(dataUpdateEvent, 'genres/newGenre', ['1']);
+      expectDataUpdateEventCalledWith(dataUpdateEvent, 'songs/newSong', [1]);
+      expectDataUpdateEventCalledWith(dataUpdateEvent, 'artists/newArtist', [1]);
+      expectDataUpdateEventCalledWith(dataUpdateEvent, 'albums/newAlbum', [1]);
+      expectDataUpdateEventCalledWith(dataUpdateEvent, 'genres/newGenre', [1]);
     });
 
     test('should send PARSE_SUCCESSFUL message by default', async () => {
@@ -659,7 +659,7 @@ describe('parseSong', () => {
       const { sendMessageToRenderer } = await import('../../../../src/main/main');
       expect(sendMessageToRenderer).toHaveBeenCalledWith({
         messageCode: 'PARSE_SUCCESSFUL',
-        data: { name: 'Test Song', songId: '123' }
+        data: { name: 'Test Song', songId: 123 }
       });
     });
   });

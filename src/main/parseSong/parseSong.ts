@@ -278,7 +278,7 @@ export const parseSong = async (
       if (!noRendererMessages)
         sendMessageToRenderer({
           messageCode: 'PARSE_SUCCESSFUL',
-          data: { name: songTitle, songId: res.songData.id.toString() }
+          data: { name: songTitle, songId: res.songData.id }
         });
 
       // timeEnd(

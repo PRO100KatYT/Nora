@@ -117,7 +117,7 @@ export function expectDataUpdateEventCalled(
 export function expectDataUpdateEventCalledWith(
   mockFn: ReturnType<typeof vi.fn>,
   dataType: string,
-  ids: string[]
+  ids: number[]
 ) {
   expect(mockFn).toHaveBeenCalledWith(dataType, ids);
 }
