@@ -1,9 +1,8 @@
 import path from 'path';
 import { readFile } from 'fs/promises';
 import { statSync } from 'fs';
-import NodeID3 from 'node-id3';
 import sharp from 'sharp';
-import { File } from 'node-taglib-sharp';
+import { File, ByteVector, Picture, PictureType } from 'node-taglib-sharp';
 
 import { DEFAULT_FILE_URL } from '../filesystem';
 import {
@@ -21,9 +20,8 @@ import {
 import { generateRandomId } from '../utils/randomId';
 import { createTempArtwork, removeArtwork, storeArtworks } from '../other/artworks';
 import generatePalette from '../other/generatePalette';
-import { parseLyricsFromID3Format, updateCachedLyrics } from '../core/getSongLyrics';
+import { updateCachedLyrics } from '../core/getSongLyrics';
 import parseLyrics from '../../common/parseLyrics';
-import convertParsedLyricsToNodeID3Format from '../core/convertParsedLyricsToNodeID3Format';
 import sendSongMetadata from '../core/sendSongMetadata';
 import { isSongBlacklisted } from '../utils/isBlacklisted';
 import isPathAWebURL from '../utils/isPathAWebUrl';
@@ -32,13 +30,56 @@ import { appPreferences } from '../../../package.json';
 import saveLyricsToLRCFile from '../core/saveLyricsToLrcFile';
 import logger from '../logger';
 import { getUserSettings } from '../db/queries/settings';
-import { updateSongModifiedAtByPath } from '../db/queries/songs';
+import {
+  updateSongModifiedAtByPath,
+  getSongByPath,
+  updateSongBasicFields
+} from '../db/queries/songs';
+import { db } from '../db/db';
+import {
+  createArtist,
+  getArtistWithName,
+  linkSongToArtist,
+  unlinkSongFromArtist,
+  getArtistSongIds,
+  deleteArtist
+} from '../db/queries/artists';
+import {
+  createAlbum,
+  getAlbumWithTitle,
+  linkSongToAlbum,
+  unlinkSongFromAlbum,
+  getAlbumSongIds,
+  deleteAlbum
+} from '../db/queries/albums';
+import {
+  createGenre,
+  linkSongToGenre,
+  unlinkSongFromGenre,
+  getGenreByName,
+  getGenreSongIds,
+  deleteGenre
+} from '../db/queries/genres';
+import { linkArtworksToSong } from '../db/queries/artworks';
+import { withFileHandle } from '../utils/withFileHandle';
 
 const { metadataEditingSupportedExtensions } = appPreferences;
 
+type TagData = {
+  title?: string;
+  artists?: string[];
+  album?: string;
+  genres?: string[];
+  composer?: string;
+  trackNumber?: number;
+  year?: number;
+  artwork?: Picture;
+  lyrics?: string;
+};
+
 type PendingMetadataUpdates = {
   songPath: string;
-  tags: NodeID3.Tags;
+  tags: TagData;
   sendUpdatedData?: boolean;
   isKnownSource?: boolean;
 };
@@ -65,22 +106,46 @@ export const savePendingMetadataUpdates = async (currentSongPath = '', forceSave
 
     if (forceSave || !isACurrentlyPlayingSong) {
       try {
-        const file = File.createFromPath(songPath);
-        NodeID3.update(pendingMetadata.tags, songPath);
+        await withFileHandle(songPath, async (file) => {
+          const { tags } = pendingMetadata;
 
+          // Write metadata using node-taglib-sharp
+          if (tags.title) file.tag.title = tags.title;
+          if (tags.artists) file.tag.performers = tags.artists;
+          if (tags.album) file.tag.album = tags.album;
+          if (tags.genres) file.tag.genres = tags.genres;
+          if (tags.composer) file.tag.composers = [tags.composer];
+          if (tags.trackNumber !== undefined) file.tag.track = tags.trackNumber;
+          if (tags.year !== undefined) file.tag.year = tags.year;
+
+          // Handle artwork
+          if (tags.artwork) {
+            file.tag.pictures = [tags.artwork];
+          }
+
+          // Handle lyrics - only unsynchronized (taglib-sharp doesn't support SYLT frames)
+          if (tags.lyrics) {
+            file.tag.lyrics = tags.lyrics;
+          }
+
+          file.save();
+        });
+
+        // Save lyrics to LRC file if needed
         if (!isASupportedFormat || saveLyricsInLrcFilesForSupportedSongs) {
-          const { title = '', synchronisedLyrics, unsynchronisedLyrics } = pendingMetadata.tags;
-
-          const lyrics = parseLyricsFromID3Format(synchronisedLyrics, unsynchronisedLyrics);
+          const { title = '', lyrics } = pendingMetadata.tags;
 
           if (lyrics) {
-            saveLyricsToLRCFile(songPath, {
-              title,
-              source: 'IN_SONG_LYRICS',
-              isOfflineLyricsAvailable: true,
-              lyricsType: synchronisedLyrics ? 'SYNCED' : 'UN_SYNCED',
-              lyrics
-            });
+            const parsedLyrics = parseLyrics(lyrics);
+            if (parsedLyrics) {
+              saveLyricsToLRCFile(songPath, {
+                title,
+                source: 'IN_SONG_LYRICS',
+                isOfflineLyricsAvailable: true,
+                lyricsType: parsedLyrics.isSynced ? 'SYNCED' : 'UN_SYNCED',
+                lyrics: parsedLyrics
+              });
+            }
           }
         }
 
@@ -181,30 +246,18 @@ const generateArtworkBuffer = async (artworkPath?: string) => {
 const parseImgDataForNodeID3 = async (
   artworkPaths: ArtworkPaths,
   artworkBuffer?: Buffer | void
-): Promise<
-  | {
-      mime: string;
-      type: {
-        id: number;
-        name?: string | undefined;
-      };
-      description: string;
-      imageBuffer: Buffer;
-    }
-  | undefined
-> => {
+): Promise<Picture | undefined> => {
   if (artworkPaths.isDefaultArtwork) return undefined;
 
   if (artworkBuffer) {
     const pngBuffer = await sharp(artworkBuffer).toFormat('png').toBuffer();
 
     if (pngBuffer) {
-      return {
-        type: { id: 1 },
-        mime: 'image/png',
-        description: 'artwork',
-        imageBuffer: pngBuffer
-      };
+      const picture = Picture.fromData(ByteVector.fromByteArray(new Uint8Array(pngBuffer)));
+      picture.mimeType = 'image/png';
+      picture.type = PictureType.FrontCover;
+      picture.description = 'artwork';
+      return picture;
     }
   }
   return undefined;
@@ -595,7 +648,6 @@ const manageArtworkUpdatesOfSongsFromUnknownSource = async (
 
 const manageLyricsUpdates = (
   tags: SongTags,
-  prevTags: NodeID3.Tags,
   prevSongData?: SavableSongData
 ) => {
   const parsedSyncedLyrics = tags.synchronizedLyrics
@@ -605,14 +657,11 @@ const manageLyricsUpdates = (
     ? parseLyrics(tags.unsynchronizedLyrics)
     : undefined;
 
-  const unsynchronisedLyrics = parsedUnsyncedLyrics
-    ? { language: 'ENG', text: parsedUnsyncedLyrics.unparsedLyrics }
-    : undefined;
-
-  const synchronisedLyrics = convertParsedLyricsToNodeID3Format(
-    parsedSyncedLyrics,
-    prevTags.synchronisedLyrics
-  );
+  // For node-taglib-sharp, we only store unsynchronized lyrics in the tag
+  // Synchronized lyrics will be saved to LRC file separately
+  const lyricsText = parsedSyncedLyrics
+    ? parsedSyncedLyrics.unparsedLyrics
+    : parsedUnsyncedLyrics?.unparsedLyrics;
 
   if (parsedSyncedLyrics || parsedUnsyncedLyrics) {
     updateCachedLyrics((cachedLyrics) => {
@@ -637,8 +686,9 @@ const manageLyricsUpdates = (
   }
 
   return {
-    unsynchronisedLyrics,
-    synchronisedLyrics
+    lyricsText,
+    parsedSyncedLyrics,
+    parsedUnsyncedLyrics
   };
 };
 
@@ -668,7 +718,6 @@ const updateSongId3TagsOfUnknownSource = async (
       const songPathWithoutDefaultUrl = removeDefaultAppProtocolFromFilePath(songPath);
 
       const oldSongTags = await sendSongMetadata(songPath, false);
-      const oldNodeID3Tags = await NodeID3.Promise.read(songPathWithoutDefaultUrl);
 
       // ?  /////////// ARTWORK DATA FOR SONGS FROM UNKNOWN SOURCES /////////////////
 
@@ -681,31 +730,52 @@ const updateSongId3TagsOfUnknownSource = async (
       updateSongsOutsideLibraryData(songOutsideLibraryData.songId, songOutsideLibraryData);
 
       // ?  /////////// LYRICS DATA FOR SONGS FROM UNKNOWN SOURCES /////////////////
-      const { synchronisedLyrics, unsynchronisedLyrics } = manageLyricsUpdates(
-        newSongTags,
-        oldNodeID3Tags
-      );
+      const { lyricsText, parsedSyncedLyrics } = manageLyricsUpdates(newSongTags);
 
-      const id3Tags: NodeID3.Tags = {
+      // Create artwork Picture object if available
+      let artworkPicture: Picture | undefined;
+      if (artworkPath) {
+        const artworkPathWithoutProtocol = removeDefaultAppProtocolFromFilePath(artworkPath);
+        const artBuf = artworkBuffer || (await generateLocalArtworkBuffer(artworkPathWithoutProtocol));
+        if (artBuf) {
+          const pngBuffer = await sharp(artBuf).toFormat('png').toBuffer();
+          artworkPicture = Picture.fromData(ByteVector.fromByteArray(new Uint8Array(pngBuffer)));
+          artworkPicture.mimeType = 'image/png';
+          artworkPicture.type = PictureType.FrontCover;
+          artworkPicture.description = 'artwork';
+        }
+      }
+
+      const tags: TagData = {
         title: newSongTags.title,
-        artist: newSongTags.artists?.map((artist) => artist.name).join(', '),
+        artists: newSongTags.artists?.map((artist) => artist.name),
         album: newSongTags.album?.title,
-        genre: newSongTags.genres?.map((genre) => genre.name).join(', '),
+        genres: newSongTags.genres?.map((genre) => genre.name),
         composer: newSongTags.composer,
-        trackNumber: newSongTags.trackNumber?.toString(),
-        year: newSongTags.releasedYear ? `${newSongTags.releasedYear}` : undefined,
-        image: artworkPath ? removeDefaultAppProtocolFromFilePath(artworkPath) : undefined,
-        synchronisedLyrics: synchronisedLyrics || [],
-        unsynchronisedLyrics
+        trackNumber: newSongTags.trackNumber,
+        year: newSongTags.releasedYear,
+        artwork: artworkPicture,
+        lyrics: lyricsText
       };
 
       // Kept to be saved later
       addMetadataToPendingQueue({
         songPath: songPathWithoutDefaultUrl,
-        tags: id3Tags,
+        tags,
         isKnownSource: false,
         sendUpdatedData
       });
+
+      // Save synced lyrics to LRC file
+      if (parsedSyncedLyrics) {
+        saveLyricsToLRCFile(songPath, {
+          title: newSongTags.title,
+          source: 'IN_SONG_LYRICS',
+          isOfflineLyricsAvailable: true,
+          lyricsType: 'SYNCED',
+          lyrics: parsedSyncedLyrics
+        });
+      }
 
       if (sendUpdatedData) {
         const updatedData: AudioPlayerData = {
@@ -746,11 +816,6 @@ const updateSongId3Tags = async (
   sendUpdatedData = false,
   isKnownSource = true
 ) => {
-  const songs = getSongsData();
-  let artists = getArtistsData();
-  let albums = getAlbumsData();
-  let genres = getGenresData();
-
   const result: UpdateSongDataResult = { success: false };
 
   if (!isKnownSource) {
@@ -770,138 +835,326 @@ const updateSongId3Tags = async (
     }
   }
 
-  if (Array.isArray(songs) && songs.length > 0) {
-    const songId = songIdOrPath;
-    for (let x = 0; x < songs.length; x += 1) {
-      if (songs[x].songId === songId) {
-        try {
-          logger.debug(`Started the song data updating procees of the song '${songId}'`);
-          let song = songs[x];
-          const prevTags = await NodeID3.Promise.read(song.path);
+  try {
+    logger.debug(`Started the song data updating process for song '${songIdOrPath}'`);
 
-          // / / / / / SONG TITLE / / / / / / /
-          song.title = tags.title;
+    // Get song data by path (songIdOrPath should be the file path)
+    const song = await getSongByPath(songIdOrPath);
+    
+    if (!song) {
+      logger.error('Song not found in database', { songIdOrPath });
+      throw new Error('Song not found in database');
+    }
 
-          // / / / / / SONG YEAR / / / / / / /
-          song.year = tags.releasedYear;
+    const songId = song.id;
+    let artworkBuffer: Buffer | undefined;
+    let artwork: Picture | undefined;
 
-          // / / / / / SONG ARTWORK / / / / / / /
-          const updatedArtworkData = await manageArtworkUpdates(song, tags);
-          const { artworkBuffer, songPrevArtworkPaths } = updatedArtworkData;
-          song = updatedArtworkData.updatedSongData;
+    // Execute all updates in a database transaction
+    await db.transaction(async (trx) => {
+      // / / / / / SONG BASIC FIELDS / / / / / / /
+      await updateSongBasicFields(
+        songId,
+        {
+          title: tags.title,
+          year: tags.releasedYear,
+          trackNumber: tags.trackNumber
+        },
+        trx
+      );
 
-          // / / / / / SONG ARTISTS / / / / / / /
-          const { updatedArtists } = manageArtistDataUpdates(artists, tags, song);
-          artists = updatedArtists;
+      // / / / / / SONG ARTWORK / / / / / / /
+      const newArtworkPath = tags.artworkPath
+        ? removeDefaultAppProtocolFromFilePath(tags.artworkPath)
+        : undefined;
 
-          // / / / / / SONG ALBUM / / / / / /
-          const updatedAlbumData = manageAlbumDataUpdates(albums, song, tags, songPrevArtworkPaths);
-          albums = updatedAlbumData.updatedAlbums;
-          song = updatedAlbumData.updatedSongData;
+      if (newArtworkPath) {
+        artworkBuffer = await generateArtworkBuffer(newArtworkPath);
+        
+        if (artworkBuffer) {
+          // Store artwork and generate palette
+          const palette = await generatePalette(artworkBuffer);
+          const artworkData = await storeArtworks('songs', artworkBuffer, trx);
 
-          // / / / / / / / SONG GENRES / / / / / / /
+          if (artworkData && artworkData.length > 0) {
+            // Link artwork to song
+            await linkArtworksToSong(
+              artworkData.map((art) => ({ songId, artworkId: art.id })),
+              trx
+            );
+          }
 
-          const updatedGenreData = manageGenreDataUpdates(genres, song, tags, songPrevArtworkPaths);
-          genres = updatedGenreData.updatedGenres;
-          song = updatedGenreData.updatedSongData;
-
-          // / / / / / / / SONG TRACK NUMBER / / / / / / /
-          song.trackNo = tags.trackNumber;
-
-          // / / / / / / / SONG LYRICS / / / / / / /
-          const { synchronisedLyrics, unsynchronisedLyrics } = manageLyricsUpdates(
-            tags,
-            prevTags,
-            song
+          artwork = await parseImgDataForNodeID3(
+            getSongArtworkPath(songId, true),
+            artworkBuffer
           );
-
-          // / / / / / SONG FILE UPDATE PROCESS AND UPDATE FINALIZATION / / / / / /
-          const artworkPaths = getSongArtworkPath(song.songId, song.isArtworkAvailable, true);
-
-          const id3Tags: NodeID3.Tags = {
-            title: tags.title,
-            artist: tags.artists?.map((artist) => artist.name).join(', '),
-            album: tags.album?.title,
-            genre: tags.genres?.map((genre) => genre.name).join(', '),
-            composer: tags.composer,
-            trackNumber: tags.trackNumber?.toString(),
-            year: tags.releasedYear ? `${tags.releasedYear}` : undefined,
-            image: await parseImgDataForNodeID3(artworkPaths, artworkBuffer),
-            unsynchronisedLyrics,
-            synchronisedLyrics: synchronisedLyrics || []
-          };
-
-          // Kept to be saved later
-          const updatedData = await addMetadataToPendingQueue({
-            songPath: song.path,
-            tags: id3Tags,
-            isKnownSource: true,
-            sendUpdatedData
-          });
-
-          if (updatedData) {
-            song.modifiedDate = updatedData.modifiedDate;
-          }
-
-          songs[x] = song;
-          setSongsData(songs);
-          setArtistsData(artists);
-          setAlbumsData(albums);
-          setGenresData(genres);
-
-          dataUpdateEvent('songs/artworks', [songId]);
-          dataUpdateEvent('songs/updatedSong', [songId]);
-          dataUpdateEvent('artists');
-          dataUpdateEvent('albums');
-          dataUpdateEvent('genres');
-
-          result.success = true;
-
-          if (sendUpdatedData) {
-            const songArtists = artists
-              .filter((z) => song.artists?.some((y) => y.artistId === z.artistId))
-              .map((z) => ({
-                artistId: z.artistId,
-                name: z.name,
-                artworkPath: getArtistArtworkPath(z.artworkName).artworkPath,
-                onlineArtworkPaths: z.onlineArtworkPaths
-              }));
-
-            const data: AudioPlayerData = {
-              songId,
-              title: song.title,
-              artists: songArtists,
-              album: song.album,
-              artwork: artworkBuffer ? Buffer.from(artworkBuffer).toString('base64') : undefined,
-              artworkPath: artworkPaths.artworkPath,
-              duration: song.duration,
-              isAFavorite: song.isAFavorite,
-              isBlacklisted: isSongBlacklisted(song.songId, song.path),
-              path: song.path,
-              isKnownSource: true
-            };
-            result.updatedData = data;
-          }
-          logger.debug(`song data updated successfully`, { songId });
-          return result;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (err: any) {
-          if ('message' in err) {
-            result.reason = err.message;
-            sendMessageToRenderer({
-              messageCode: 'METADATA_UPDATE_FAILED',
-              data: { message: err.message }
-            });
-          }
-          logger.error('Song metadata update failed.', { err });
-          return result;
         }
       }
+
+      // / / / / / SONG ARTISTS / / / / / / /
+      if (tags.artists) {
+        // Get current artists linked to song
+        const currentArtists = song.artists?.map((a) => a.artist) || [];
+        const currentArtistIds = currentArtists.map((a) => a.id);
+
+        // Separate new artists (without ID) from existing artists (with ID)
+        const artistsWithoutIds = tags.artists.filter((artist) => !artist.artistId);
+        const artistsWithIds = tags.artists.filter((artist) => artist.artistId);
+
+        // Create new artists
+        for (const artistData of artistsWithoutIds) {
+          const existingArtist = await getArtistWithName(artistData.name, trx);
+          
+          if (existingArtist) {
+            await linkSongToArtist(existingArtist.id, songId, trx);
+          } else {
+            const newArtist = await createArtist({ name: artistData.name }, trx);
+            await linkSongToArtist(newArtist.id, songId, trx);
+          }
+        }
+
+        // Handle existing artists - link newly linked ones
+        const newlyLinkedArtistIds = artistsWithIds
+          .filter((a) => !currentArtistIds.includes(Number(a.artistId)))
+          .map((a) => Number(a.artistId));
+
+        for (const artistId of newlyLinkedArtistIds) {
+          await linkSongToArtist(artistId, songId, trx);
+        }
+
+        // Unlink removed artists
+        const unlinkedArtistIds = currentArtistIds.filter(
+          (id) => !artistsWithIds.some((a) => Number(a.artistId) === id)
+        );
+
+        for (const artistId of unlinkedArtistIds) {
+          await unlinkSongFromArtist(artistId, songId, trx);
+
+          // Check if artist should be deleted (no more songs)
+          // Safe cascade pattern: Check for remaining songs before deletion
+          // When artist is deleted, database CASCADE will automatically clean up:
+          // - artistsSongs entries (already cleaned up above)
+          // - albumsArtists entries
+          // - artistsArtworks entries
+          const artistSongIds = await getArtistSongIds(artistId, trx);
+          if (artistSongIds.length === 0) {
+            await deleteArtist(artistId, trx);
+          }
+        }
+      }
+
+      // / / / / / SONG ALBUM / / / / / /
+      if (tags.album) {
+        // Get current album
+        const currentAlbum = song.albums?.[0]?.album;
+
+        if (tags.album.albumId) {
+          // Link to existing album
+          const albumId = Number(tags.album.albumId);
+
+          if (currentAlbum && currentAlbum.id !== albumId) {
+            // Unlink from old album
+            await unlinkSongFromAlbum(currentAlbum.id, songId, trx);
+
+            // Check if old album should be deleted (no more songs)
+            // Safe cascade pattern: Check for remaining songs before deletion
+            // When album is deleted, database CASCADE will automatically clean up:
+            // - albumsSongs entries (already cleaned up above)
+            // - albumsArtists entries
+            // - albumsArtworks entries
+            const albumSongIds = await getAlbumSongIds(currentAlbum.id, trx);
+            if (albumSongIds.length === 0) {
+              await deleteAlbum(currentAlbum.id, trx);
+            }
+          }
+
+          if (!currentAlbum || currentAlbum.id !== albumId) {
+            await linkSongToAlbum(albumId, songId, trx);
+          }
+        } else {
+          // Create new album
+          const existingAlbum = await getAlbumWithTitle(tags.album.title, trx);
+
+          if (existingAlbum) {
+            await linkSongToAlbum(existingAlbum.id, songId, trx);
+          } else {
+            const newAlbum = await createAlbum({ title: tags.album.title }, trx);
+            await linkSongToAlbum(newAlbum.id, songId, trx);
+          }
+
+          // Unlink from old album if it existed
+          if (currentAlbum) {
+            await unlinkSongFromAlbum(currentAlbum.id, songId, trx);
+
+            // Safe cascade pattern: Verify no remaining songs before deletion
+            const albumSongIds = await getAlbumSongIds(currentAlbum.id, trx);
+            if (albumSongIds.length === 0) {
+              await deleteAlbum(currentAlbum.id, trx);
+            }
+          }
+        }
+      } else if (song.albums && song.albums.length > 0) {
+        // User removed the album
+        const currentAlbum = song.albums[0].album;
+        await unlinkSongFromAlbum(currentAlbum.id, songId, trx);
+
+        // Safe cascade pattern: Verify no remaining songs before deletion
+        const albumSongIds = await getAlbumSongIds(currentAlbum.id, trx);
+        if (albumSongIds.length === 0) {
+          await deleteAlbum(currentAlbum.id, trx);
+        }
+      }
+
+      // / / / / / SONG GENRES / / / / / /
+      if (tags.genres) {
+        // Get current genres linked to song
+        const currentGenres = song.genres?.map((g) => g.genre) || [];
+        const currentGenreIds = currentGenres.map((g) => g.id);
+
+        // Separate new genres from existing ones
+        const genresWithoutIds = tags.genres.filter((genre) => !genre.genreId);
+        const genresWithIds = tags.genres.filter((genre) => genre.genreId);
+
+        // Create new genres
+        for (const genreData of genresWithoutIds) {
+          const existingGenre = await getGenreByName(genreData.name, trx);
+
+          if (existingGenre) {
+            await linkSongToGenre(existingGenre.id, songId, trx);
+          } else {
+            const newGenre = await createGenre({ name: genreData.name }, trx);
+            await linkSongToGenre(newGenre.id, songId, trx);
+          }
+        }
+
+        // Link newly linked genres
+        const newlyLinkedGenreIds = genresWithIds
+          .filter((g) => !currentGenreIds.includes(Number(g.genreId)))
+          .map((g) => Number(g.genreId));
+
+        for (const genreId of newlyLinkedGenreIds) {
+          await linkSongToGenre(genreId, songId, trx);
+        }
+
+        // Unlink removed genres
+        const unlinkedGenreIds = currentGenreIds.filter(
+          (id) => !genresWithIds.some((g) => Number(g.genreId) === id)
+        );
+
+        for (const genreId of unlinkedGenreIds) {
+          await unlinkSongFromGenre(genreId, songId, trx);
+
+          // Check if genre should be deleted (no more songs)
+          // Safe cascade pattern: Check for remaining songs before deletion
+          // When genre is deleted, database CASCADE will automatically clean up:
+          // - genresSongs entries (already cleaned up above)
+          // - artworksGenres entries
+          const genreSongIds = await getGenreSongIds(genreId, trx);
+          if (genreSongIds.length === 0) {
+            await deleteGenre(genreId, trx);
+          }
+        }
+      }
+    });
+
+    // Transaction succeeded, now update the file system
+    logger.debug('Database transaction completed successfully');
+
+    // / / / / / SONG LYRICS / / / / / / /
+    const { lyricsText, parsedSyncedLyrics } = manageLyricsUpdates(tags);
+
+    // / / / / / SONG FILE UPDATE PROCESS / / / / / /
+    const tagData: TagData = {
+      title: tags.title,
+      artists: tags.artists?.map((artist) => artist.name),
+      album: tags.album?.title,
+      genres: tags.genres?.map((genre) => genre.name),
+      composer: tags.composer,
+      trackNumber: tags.trackNumber,
+      year: tags.releasedYear,
+      artwork,
+      lyrics: lyricsText
+    };
+
+    // Add to pending queue for file write
+    const updatedData = await addMetadataToPendingQueue({
+      songPath: song.path,
+      tags: tagData,
+      isKnownSource: true,
+      sendUpdatedData
+    });
+
+    // Save synced lyrics to LRC file
+    if (parsedSyncedLyrics) {
+      saveLyricsToLRCFile(song.path, {
+        title: tags.title,
+        source: 'IN_SONG_LYRICS',
+        isOfflineLyricsAvailable: true,
+        lyricsType: 'SYNCED',
+        lyrics: parsedSyncedLyrics
+      });
     }
+
+    if (updatedData && 'modifiedDate' in updatedData) {
+      await updateSongModifiedAtByPath(song.path, new Date(updatedData.modifiedDate));
+    }
+
+    // Emit data update events
+    dataUpdateEvent('songs/artworks', [songId.toString()]);
+    dataUpdateEvent('songs/updatedSong', [songId.toString()]);
+    dataUpdateEvent('artists');
+    dataUpdateEvent('albums');
+    dataUpdateEvent('genres');
+
+    result.success = true;
+
+    if (sendUpdatedData) {
+      // Fetch updated song data for response
+      const updatedSong = await getSongByPath(song.path);
+      
+      if (updatedSong) {
+        const songArtists = updatedSong.artists?.map((a) => ({
+          artistId: a.artist.id.toString(),
+          name: a.artist.name,
+          artworkPath: getArtistArtworkPath(undefined).artworkPath,
+          onlineArtworkPaths: undefined
+        })) || [];
+
+        const data: AudioPlayerData = {
+          songId: songId.toString(),
+          title: updatedSong.title,
+          artists: songArtists,
+          album: updatedSong.albums?.[0]
+            ? {
+                albumId: updatedSong.albums[0].album.id.toString(),
+                name: updatedSong.albums[0].album.title
+              }
+            : undefined,
+          artwork: artworkBuffer ? Buffer.from(artworkBuffer).toString('base64') : undefined,
+          artworkPath: getSongArtworkPath(songId, !!artworkBuffer).artworkPath,
+          duration: parseFloat(updatedSong.duration),
+          isAFavorite: updatedSong.isFavorite,
+          isBlacklisted: isSongBlacklisted(songId.toString(), updatedSong.path),
+          path: updatedSong.path,
+          isKnownSource: true
+        };
+        result.updatedData = data;
+      }
+    }
+
+    logger.debug(`Song data updated successfully`, { songId });
+    return result;
+  } catch (err: any) {
+    if ('message' in err) {
+      result.reason = err.message;
+      sendMessageToRenderer({
+        messageCode: 'METADATA_UPDATE_FAILED',
+        data: { message: err.message }
+      });
+    }
+    logger.error('Song metadata update failed.', { err });
     return result;
   }
-  logger.error('Failed to update songsdata. Songs array is empty.', { songs });
-  throw new Error('Failed to update songsdata. Songs array is empty.');
 };
 
 export default updateSongId3Tags;
