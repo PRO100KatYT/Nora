@@ -6,7 +6,6 @@ const sendPlaylistData = async (
   sortType?: PlaylistSortTypes,
   start = 0,
   end = 0,
-  onlyMutablePlaylists = false
 ): Promise<PaginatedResult<Playlist, PlaylistSortTypes>> => {
   const playlists = await getAllPlaylists({
     playlistIds: playlistIds.map((id) => Number(id)).filter((id) => !isNaN(id)),

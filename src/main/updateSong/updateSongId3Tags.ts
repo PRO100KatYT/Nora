@@ -2,7 +2,7 @@ import path from 'path';
 import { readFile } from 'fs/promises';
 import { statSync } from 'fs';
 import sharp from 'sharp';
-import { File, ByteVector, Picture, PictureType } from 'node-taglib-sharp';
+import { ByteVector, Picture, PictureType } from 'node-taglib-sharp';
 
 import { DEFAULT_FILE_URL } from '../filesystem';
 import {
@@ -17,8 +17,7 @@ import {
   sendMessageToRenderer,
   updateSongsOutsideLibraryData
 } from '../main';
-import { generateRandomId } from '../utils/randomId';
-import { createTempArtwork, removeArtwork, storeArtworks } from '../other/artworks';
+import { createTempArtwork, storeArtworks } from '../other/artworks';
 import generatePalette from '../other/generatePalette';
 import { updateCachedLyrics } from '../core/getSongLyrics';
 import parseLyrics from '../../common/parseLyrics';
@@ -264,6 +263,7 @@ const parseImgDataForNodeID3 = async (
   return undefined;
 };
 
+/* DEPRECATED - Old function not used in new implementation
 const manageArtistDataUpdates = (
   artists: SavableArtist[],
   newSongData: SongTags,
@@ -378,7 +378,9 @@ const manageArtistDataUpdates = (
     newlyLinkedArtists
   };
 };
+*/
 
+/* DEPRECATED - Old function not used in new implementation
 const manageGenreDataUpdates = (
   genres: SavableGenre[],
   prevSongData: SavableSongData,
@@ -474,7 +476,9 @@ const manageGenreDataUpdates = (
     unlinkedGenres
   };
 };
+*/
 
+/* DEPRECATED - Old function not used in new implementation
 const manageAlbumDataUpdates = (
   albums: SavableAlbum[],
   prevSongData: SavableSongData,
@@ -553,7 +557,9 @@ const manageAlbumDataUpdates = (
   const updatedAlbums = albums.filter((album) => album.songs.length > 0);
   return { updatedAlbums, updatedSongData: prevSongData };
 };
+*/
 
+/* DEPRECATED - Old function not used in new implementation
 const manageArtworkUpdates = async (prevSongData: SavableSongData, newSongData: SongTags) => {
   const { songId } = prevSongData;
   const newArtworkPath = newSongData.artworkPath
@@ -609,6 +615,7 @@ const manageArtworkUpdates = async (prevSongData: SavableSongData, newSongData: 
     isArtworkChanged
   };
 };
+*/
 
 const manageArtworkUpdatesOfSongsFromUnknownSource = async (
   prevSongTags: SongTags,
@@ -750,7 +757,7 @@ const updateSongId3TagsOfUnknownSource = async (
       const tags: TagData = {
         title: newSongTags.title,
         artists: newSongTags.artists?.map((artist) => artist.name),
-        album: newSongTags.album?.title,
+        album: newSongTags.albums?.[0]?.title,
         genres: newSongTags.genres?.map((genre) => genre.name),
         composer: newSongTags.composer,
         trackNumber: newSongTags.trackNumber,
@@ -784,12 +791,12 @@ const updateSongId3TagsOfUnknownSource = async (
           title: newSongTags.title,
           artists: newSongTags.artists?.map((artist) => ({
             ...artist,
-            artistId: ''
+            artistId: artist.artistId || 0
           })),
-          album: newSongTags.album
+          album: newSongTags.albums?.[0]
             ? {
-                albumId: newSongTags.album?.albumId || '',
-                name: newSongTags.album.title
+                albumId: newSongTags.albums[0].albumId || 0,
+                name: newSongTags.albums[0].title
               }
             : undefined,
           artwork: artworkBuffer ? Buffer.from(artworkBuffer).toString('base64') : undefined,
@@ -872,11 +879,12 @@ const updateSongId3Tags = async (
         : undefined;
 
       if (newArtworkPath) {
-        artworkBuffer = await generateArtworkBuffer(newArtworkPath);
+        const buffer = await generateArtworkBuffer(newArtworkPath);
+        artworkBuffer = buffer || undefined;
         
         if (artworkBuffer) {
           // Store artwork and generate palette
-          const palette = await generatePalette(artworkBuffer);
+          await generatePalette(artworkBuffer);
           const artworkData = await storeArtworks('songs', artworkBuffer, trx);
 
           if (artworkData && artworkData.length > 0) {
@@ -947,13 +955,13 @@ const updateSongId3Tags = async (
       }
 
       // / / / / / SONG ALBUM / / / / / /
-      if (tags.album) {
+      if (tags.albums && tags.albums.length > 0) {
         // Get current album
         const currentAlbum = song.albums?.[0]?.album;
 
-        if (tags.album.albumId) {
+        if (tags.albums[0].albumId) {
           // Link to existing album
-          const albumId = Number(tags.album.albumId);
+          const albumId = Number(tags.albums[0].albumId);
 
           if (currentAlbum && currentAlbum.id !== albumId) {
             // Unlink from old album
@@ -976,12 +984,12 @@ const updateSongId3Tags = async (
           }
         } else {
           // Create new album
-          const existingAlbum = await getAlbumWithTitle(tags.album.title, trx);
+          const existingAlbum = await getAlbumWithTitle(tags.albums[0].title, trx);
 
           if (existingAlbum) {
             await linkSongToAlbum(existingAlbum.id, songId, trx);
           } else {
-            const newAlbum = await createAlbum({ title: tags.album.title }, trx);
+            const newAlbum = await createAlbum({ title: tags.albums[0].title }, trx);
             await linkSongToAlbum(newAlbum.id, songId, trx);
           }
 
@@ -1070,7 +1078,7 @@ const updateSongId3Tags = async (
     const tagData: TagData = {
       title: tags.title,
       artists: tags.artists?.map((artist) => artist.name),
-      album: tags.album?.title,
+      album: tags.albums?.[0]?.title,
       genres: tags.genres?.map((genre) => genre.name),
       composer: tags.composer,
       trackNumber: tags.trackNumber,
@@ -1117,7 +1125,7 @@ const updateSongId3Tags = async (
       
       if (updatedSong) {
         const songArtists = updatedSong.artists?.map((a) => ({
-          artistId: a.artist.id.toString(),
+          artistId: a.artist.id,
           name: a.artist.name,
           artworkPath: getArtistArtworkPath(undefined).artworkPath,
           onlineArtworkPaths: undefined
@@ -1129,7 +1137,7 @@ const updateSongId3Tags = async (
           artists: songArtists,
           album: updatedSong.albums?.[0]
             ? {
-                albumId: updatedSong.albums[0].album.id.toString(),
+                albumId: updatedSong.albums[0].album.id,
                 name: updatedSong.albums[0].album.title
               }
             : undefined,
@@ -1137,7 +1145,7 @@ const updateSongId3Tags = async (
           artworkPath: getSongArtworkPath(songId, !!artworkBuffer).artworkPath,
           duration: parseFloat(updatedSong.duration),
           isAFavorite: updatedSong.isFavorite,
-          isBlacklisted: isSongBlacklisted(songId.toString(), updatedSong.path),
+          isBlacklisted: isSongBlacklisted(songId, updatedSong.path),
           path: updatedSong.path,
           isKnownSource: true
         };

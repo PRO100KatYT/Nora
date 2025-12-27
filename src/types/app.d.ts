@@ -1236,7 +1236,7 @@ declare global {
 
   interface SongOutsideLibraryData {
     title: string;
-    songId: string;
+    songId: number;
     duration: number;
     path: string;
     artworkPath?: string;

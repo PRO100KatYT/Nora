@@ -324,8 +324,7 @@ export function initializeIPC(mainWindow: BrowserWindow, abortSignal: AbortSigna
         sortType?: AlbumSortTypes,
         start?: number,
         end?: number,
-        onlyMutablePlaylists = false
-      ) => sendPlaylistData(playlistIds, sortType, start, end, onlyMutablePlaylists)
+      ) => sendPlaylistData(playlistIds, sortType, start, end)
     );
 
     ipcMain.handle('app/getArtistDuplicates', (_, artistName: string) =>
