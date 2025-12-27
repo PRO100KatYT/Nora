@@ -1,6 +1,6 @@
 import type { GetAllSongsReturnType } from '@main/db/queries/songs';
 
-const getListeningDataOfASong = (songId: string, listeningData: SongListeningData[]) => {
+const getListeningDataOfASong = (songId: number, listeningData: SongListeningData[]) => {
   if (listeningData.length > 0) {
     for (let i = 0; i < listeningData.length; i += 1) {
       if (listeningData[i].songId === songId) {
@@ -237,8 +237,8 @@ function sortSongs(
     if (listeningData) {
       if (sortType === 'allTimeMostListened')
         return data.sort((a, b) => {
-          const listeningDataOfA = getListeningDataOfASong(a.id.toString(), listeningData);
-          const listeningDataOfB = getListeningDataOfASong(b.id.toString(), listeningData);
+          const listeningDataOfA = getListeningDataOfASong(a.id, listeningData);
+          const listeningDataOfB = getListeningDataOfASong(b.id, listeningData);
           const parsedListeningDataOfA = parseListeningData(listeningDataOfA);
           const parsedListeningDataOfB = parseListeningData(listeningDataOfB);
           if (parsedListeningDataOfA.allTimeListens < parsedListeningDataOfB.allTimeListens)
@@ -249,8 +249,8 @@ function sortSongs(
         });
       if (sortType === 'allTimeLeastListened')
         return data.sort((a, b) => {
-          const listeningDataOfA = getListeningDataOfASong(a.id.toString(), listeningData);
-          const listeningDataOfB = getListeningDataOfASong(b.id.toString(), listeningData);
+          const listeningDataOfA = getListeningDataOfASong(a.id, listeningData);
+          const listeningDataOfB = getListeningDataOfASong(b.id, listeningData);
           const parsedListeningDataOfA = parseListeningData(listeningDataOfA);
           const parsedListeningDataOfB = parseListeningData(listeningDataOfB);
           if (parsedListeningDataOfA.allTimeListens > parsedListeningDataOfB.allTimeListens)
@@ -261,8 +261,8 @@ function sortSongs(
         });
       if (sortType === 'monthlyMostListened')
         return data.sort((a, b) => {
-          const listeningDataOfA = getListeningDataOfASong(a.id.toString(), listeningData);
-          const listeningDataOfB = getListeningDataOfASong(b.id.toString(), listeningData);
+          const listeningDataOfA = getListeningDataOfASong(a.id, listeningData);
+          const listeningDataOfB = getListeningDataOfASong(b.id, listeningData);
           const parsedListeningDataOfA = parseListeningData(listeningDataOfA);
           const parsedListeningDataOfB = parseListeningData(listeningDataOfB);
           if (parsedListeningDataOfA.thisMonthListens < parsedListeningDataOfB.thisMonthListens)
@@ -273,8 +273,8 @@ function sortSongs(
         });
       if (sortType === 'monthlyLeastListened')
         return data.sort((a, b) => {
-          const listeningDataOfA = getListeningDataOfASong(a.id.toString(), listeningData);
-          const listeningDataOfB = getListeningDataOfASong(b.id.toString(), listeningData);
+          const listeningDataOfA = getListeningDataOfASong(a.id, listeningData);
+          const listeningDataOfB = getListeningDataOfASong(b.id, listeningData);
           const parsedListeningDataOfA = parseListeningData(listeningDataOfA);
           const parsedListeningDataOfB = parseListeningData(listeningDataOfB);
           if (parsedListeningDataOfA.thisMonthListens > parsedListeningDataOfB.thisMonthListens)
@@ -320,7 +320,7 @@ function sortSongs(
         });
     if (sortType === 'blacklistedSongs')
       return data
-        .filter((song) => !!song.blacklist)
+        .filter((song) => song.isBlacklisted)
         .sort((a, b) => {
           if (a.title.toLowerCase().replace(/\W/gi, '') > b.title.toLowerCase().replace(/\W/gi, ''))
             return 1;
@@ -330,7 +330,7 @@ function sortSongs(
         });
     if (sortType === 'whitelistedSongs')
       return data
-        .filter((song) => !song.blacklist)
+        .filter((song) => !song.isBlacklisted)
         .sort((a, b) => {
           if (a.title.toLowerCase().replace(/\W/gi, '') > b.title.toLowerCase().replace(/\W/gi, ''))
             return 1;

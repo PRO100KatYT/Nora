@@ -9,7 +9,7 @@ const getArtist = (
   name: string
 ): {
   name: string;
-  artistId?: string;
+  artistId?: number;
 } => {
   const artists = getArtistsData();
   const lowerCasedName = name.toLowerCase();
@@ -21,7 +21,7 @@ const getArtist = (
 };
 
 const resolveFeaturingArtists = async (
-  songId: string,
+  songId: number,
   featArtistNames: string[],
   removeFeatInfoInTitle = false
 ): Promise<UpdateSongDataResult> => {

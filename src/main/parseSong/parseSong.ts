@@ -244,7 +244,7 @@ export const parseSong = async (
         genreCount: res.relevantGenres.length
       });
 
-      dataUpdateEvent('songs/newSong', [res.songData.id.toString()]);
+      dataUpdateEvent('songs/newSong', [res.songData.id]);
 
       parseQueue.delete(absoluteFilePath);
 
@@ -255,24 +255,24 @@ export const parseSong = async (
       if (res.newArtists.length > 0)
         dataUpdateEvent(
           'artists/newArtist',
-          res.newArtists.map((x) => x.id.toString())
+          res.newArtists.map((x) => x.id)
         );
       if (res.relevantArtists.length > 0)
         dataUpdateEvent(
           'artists',
-          res.relevantArtists.map((x) => x.id.toString())
+          res.relevantArtists.map((x) => x.id)
         );
-      if (res.newAlbum) dataUpdateEvent('albums/newAlbum', [res.newAlbum.id.toString()]);
-      if (res.relevantAlbum) dataUpdateEvent('albums', [res.relevantAlbum.id.toString()]);
+      if (res.newAlbum) dataUpdateEvent('albums/newAlbum', [res.newAlbum.id]);
+      if (res.relevantAlbum) dataUpdateEvent('albums', [res.relevantAlbum.id]);
       if (res.newGenres.length > 0)
         dataUpdateEvent(
           'genres/newGenre',
-          res.newGenres.map((x) => x.id.toString())
+          res.newGenres.map((x) => x.id)
         );
       if (res.relevantGenres.length > 0)
         dataUpdateEvent(
           'genres',
-          res.relevantGenres.map((x) => x.id.toString())
+          res.relevantGenres.map((x) => x.id)
         );
 
       if (!noRendererMessages)

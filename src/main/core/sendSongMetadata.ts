@@ -42,12 +42,12 @@ const getSongFileObject = (songPath: string) => File.createFromPath(songPath);
 //   return undefined;
 // };
 
-const sendSongMetadata = async (songIdOrPath: string, isKnownSource = true): Promise<SongTags> => {
+const sendSongMetadata = async (songIdOrPath: number | string, isKnownSource = true): Promise<SongTags> => {
   logger.debug(`Requested song metadata of a song`, { songIdOrPath, isKnownSource });
 
   if (isKnownSource) {
-    const songId = songIdOrPath;
-    const song = await getSongByIdForSongMetadata(Number(songId));
+    const songId = songIdOrPath as number;
+    const song = await getSongByIdForSongMetadata(songId);
 
     if (song) {
       const pathExt = path.extname(song.path).replace(/\W/, '');
@@ -63,7 +63,7 @@ const sendSongMetadata = async (songIdOrPath: string, isKnownSource = true): Pro
         song.albums.length > 0
           ? song.albums.map((a) => ({
             title: a.album.title,
-            albumId: String(a.album.id),
+            albumId: a.album.id,
             noOfSongs: 0,
             artists: a.album.artists?.map((a) => a.artist.name),
             artworkPath: parseAlbumArtworks(a.album.artworks.map((artwork) => artwork.artwork))
@@ -80,7 +80,7 @@ const sendSongMetadata = async (songIdOrPath: string, isKnownSource = true): Pro
       const songArtists: SongTags['artists'] = song.artists
         ? song.artists.map((artist) => ({
           name: artist.artist.name,
-          artistId: String(artist.artist.id),
+          artistId: artist.artist.id,
           artworkPath: parseArtistArtworks(artist.artist.artworks.map((aw) => aw.artwork))
             .artworkPath,
           onlineArtworkPaths: parseArtistOnlineArtworks(
@@ -92,7 +92,7 @@ const sendSongMetadata = async (songIdOrPath: string, isKnownSource = true): Pro
         .map((album) =>
           album.album.artists.map((artist) => ({
             name: artist.artist.name,
-            artistId: String(artist.artist.id),
+            artistId: artist.artist.id,
             artworkPath: parseArtistArtworks(artist.artist.artworks.map((aw) => aw.artwork))
               .artworkPath,
             onlineArtworkPaths: parseArtistOnlineArtworks(
@@ -104,7 +104,7 @@ const sendSongMetadata = async (songIdOrPath: string, isKnownSource = true): Pro
       const songGenres: SongTags['genres'] = song.genres
         ? song.genres.map((genre) => ({
           name: genre.genre.name,
-          genreId: String(genre.genre.id),
+          genreId: genre.genre.id,
           artworkPath: parseGenreArtworks(genre.genre.artworks.map((aw) => aw.artwork))
             .artworkPath
         }))
@@ -152,8 +152,8 @@ const sendSongMetadata = async (songIdOrPath: string, isKnownSource = true): Pro
 
     }
   } else {
-    const songPathWithDefaultUrl = songIdOrPath;
-    const songPath = removeDefaultAppProtocolFromFilePath(songIdOrPath);
+    const songPathWithDefaultUrl = songIdOrPath as string;
+    const songPath = removeDefaultAppProtocolFromFilePath(songIdOrPath as string);
 
     const pathExt = path.extname(songPath).replace(/\W/, '');
     const isASupportedFormat = metadataEditingSupportedExtensions.includes(pathExt);

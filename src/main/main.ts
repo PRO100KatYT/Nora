@@ -416,7 +416,7 @@ let dataUpdateEventTimeOutId: NodeJS.Timeout;
 let dataEventsCache: DataUpdateEvent[] = [];
 export function dataUpdateEvent(
   dataType: DataUpdateEventTypes,
-  data = [] as string[],
+  data = [] as number[],
   message?: string
 ) {
   if (dataUpdateEventTimeOutId) clearTimeout(dataUpdateEventTimeOutId);
@@ -429,7 +429,7 @@ export function dataUpdateEvent(
   }, 1000);
 }
 
-function addEventsToCache(dataType: DataUpdateEventTypes, data = [] as string[], message?: string) {
+function addEventsToCache(dataType: DataUpdateEventTypes, data = [] as number[], message?: string) {
   for (let i = 0; i < dataEventsCache.length; i += 1) {
     if (dataEventsCache[i].dataType === dataType) {
       if (data.length > 0 || message) {
@@ -593,8 +593,8 @@ export function restartApp(reason: string, noQuitEvents = false) {
   app.exit(0);
 }
 
-export async function revealSongInFileExplorer(songId: string) {
-  const song = await getSongById(Number(songId));
+export async function revealSongInFileExplorer(songId: number) {
+  const song = await getSongById(songId);
 
   if (song) return shell.showItemInFolder(song.path);
 
@@ -613,7 +613,7 @@ export const addToSongsOutsideLibraryData = (data: AudioPlayerData) =>
   songsOutsideLibraryData.push(data);
 
 export const updateSongsOutsideLibraryData = (
-  songidOrPath: string,
+  songidOrPath: string | number,
   data: AudioPlayerData
 ): void => {
   for (let i = 0; i < songsOutsideLibraryData.length; i += 1) {

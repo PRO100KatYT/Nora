@@ -5,7 +5,6 @@ import { createTempArtwork } from '../other/artworks';
 import { DEFAULT_FILE_URL } from '../filesystem';
 import logger from '../logger';
 import { sendMessageToRenderer, addToSongsOutsideLibraryData } from '../main';
-import { generateRandomId } from '../utils/randomId';
 import sendAudioData, { parseArtworkDataForAudioPlayerData } from './sendAudioData';
 
 import songCoverImage from '../../renderer/src/assets/images/webp/song_cover_default.webp?asset';
@@ -19,7 +18,7 @@ const sendAudioDataFromPath = async (songPath: string): Promise<AudioPlayerData>
 
     try {
       if (selectedSongId) {
-        const audioData = await sendAudioData(selectedSongId.toString());
+        const audioData = await sendAudioData(selectedSongId);
 
         if (audioData) return audioData;
         throw new Error('Audio data generation failed.');
@@ -48,14 +47,14 @@ const sendAudioDataFromPath = async (songPath: string): Promise<AudioPlayerData>
         const data: AudioPlayerData = {
           title,
           artists: metadata.performers?.map((artistName) => ({
-            artistId: '',
+            artistId: 0,
             name: artistName
           })),
           duration: (file.properties.durationMilliseconds ?? 0) / 1000,
           artwork: parseArtworkDataForAudioPlayerData(artworkData),
           artworkPath: tempArtworkPath,
           path: path.join(DEFAULT_FILE_URL, songPath),
-          songId: generateRandomId(),
+          songId: Math.floor(Math.random() * 1000000),
           isAFavorite: false,
           isKnownSource: false,
           isBlacklisted: false

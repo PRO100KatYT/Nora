@@ -27,7 +27,7 @@ export const isSongBlacklisted = (songId: string, songPath: string) => {
     path.normalize(songPath).includes(path.normalize(folderPath))
   );
 
-  const isSongInBlacklist = songBlacklist.includes(songId);
+  const isSongInBlacklist = songBlacklist.includes(Number(songId));
 
   return isFolderInBlacklist || isSongInBlacklist;
 };

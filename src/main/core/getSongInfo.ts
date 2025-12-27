@@ -3,7 +3,7 @@ import { getAllSongs } from '@main/db/queries/songs';
 import { convertToSongData } from '../../common/convert';
 
 const getSongInfo = async (
-  songIds: string[],
+  songIds: number[],
   sortType?: SongSortTypes,
   filterType?: SongFilterTypes,
   limit = songIds.length,

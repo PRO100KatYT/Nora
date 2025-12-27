@@ -143,7 +143,7 @@ const getSimilarArtistsFromArtistInfo = async (data: ArtistInfoPayload) => {
   return { availableArtists, unAvailableArtists };
 };
 
-const saveArtistOnlineArtworks = async (artistId: string, artistArtworks: OnlineArtistArtworks) => {
+const saveArtistOnlineArtworks = async (artistId: number, artistArtworks: OnlineArtistArtworks) => {
   const artworks: { path: string; width: number; height: number }[] = [];
 
   if (artistArtworks.picture_small) {
@@ -186,11 +186,11 @@ const saveArtistOnlineArtworks = async (artistId: string, artistArtworks: Online
   });
 };
 
-const getArtistInfoFromNet = async (artistId: string): Promise<ArtistInfoFromNet> => {
+const getArtistInfoFromNet = async (artistId: number): Promise<ArtistInfoFromNet> => {
   logger.debug(
     `Requested artist information related to an artist with id ${artistId} from the internet`
   );
-  const artistData = await getArtistById(Number(artistId));
+  const artistData = await getArtistById(artistId);
 
   if (!artistData) {
     logger.error(`Artist with id of ${artistId} not found in the database.`);

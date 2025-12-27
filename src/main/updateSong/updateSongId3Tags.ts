@@ -33,6 +33,7 @@ import { getUserSettings } from '../db/queries/settings';
 import {
   updateSongModifiedAtByPath,
   getSongByPath,
+  getSongById,
   updateSongBasicFields
 } from '../db/queries/songs';
 import { db } from '../db/db';
@@ -811,7 +812,7 @@ const updateSongId3TagsOfUnknownSource = async (
 };
 
 const updateSongId3Tags = async (
-  songIdOrPath: string,
+  songIdOrPath: number | string,
   tags: SongTags,
   sendUpdatedData = false,
   isKnownSource = true
@@ -820,7 +821,7 @@ const updateSongId3Tags = async (
 
   if (!isKnownSource) {
     try {
-      const data = await updateSongId3TagsOfUnknownSource(songIdOrPath, tags, sendUpdatedData);
+      const data = await updateSongId3TagsOfUnknownSource(songIdOrPath as string, tags, sendUpdatedData);
       if (data) result.updatedData = data;
       result.success = true;
 
@@ -838,8 +839,10 @@ const updateSongId3Tags = async (
   try {
     logger.debug(`Started the song data updating process for song '${songIdOrPath}'`);
 
-    // Get song data by path (songIdOrPath should be the file path)
-    const song = await getSongByPath(songIdOrPath);
+    // Get song data by ID or path
+    const song = typeof songIdOrPath === 'number' 
+      ? await getSongById(songIdOrPath)
+      : await getSongByPath(songIdOrPath);
     
     if (!song) {
       logger.error('Song not found in database', { songIdOrPath });
@@ -1100,8 +1103,8 @@ const updateSongId3Tags = async (
     }
 
     // Emit data update events
-    dataUpdateEvent('songs/artworks', [songId.toString()]);
-    dataUpdateEvent('songs/updatedSong', [songId.toString()]);
+    dataUpdateEvent('songs/artworks', [songId]);
+    dataUpdateEvent('songs/updatedSong', [songId]);
     dataUpdateEvent('artists');
     dataUpdateEvent('albums');
     dataUpdateEvent('genres');
@@ -1121,7 +1124,7 @@ const updateSongId3Tags = async (
         })) || [];
 
         const data: AudioPlayerData = {
-          songId: songId.toString(),
+          songId: songId,
           title: updatedSong.title,
           artists: songArtists,
           album: updatedSong.albums?.[0]

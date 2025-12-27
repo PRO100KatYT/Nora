@@ -8,7 +8,7 @@ import {
 } from '../filesystem';
 import sendSongID3Tags from './sendSongMetadata';
 
-export const getSelectedArtist = (artistIdOrName: string) => {
+export const getSelectedArtist = (artistIdOrName: string | number) => {
   const artists = getArtistsData();
 
   for (let index = 0; index < artists.length; index += 1) {
@@ -20,7 +20,7 @@ export const getSelectedArtist = (artistIdOrName: string) => {
   return undefined;
 };
 
-export const resolveArtistDuplicates = async (selectedArtistId: string, duplicateIds: string[]) => {
+export const resolveArtistDuplicates = async (selectedArtistId: number, duplicateIds: number[]) => {
   let updatedData: UpdateSongDataResult | undefined;
 
   const artists = getArtistsData();
