@@ -364,7 +364,7 @@ function LyricsPage() {
     updateRouteState('lyrics-editor', { lyrics: lines, songId: currentSongData.songId });
     navigate({
       to: '/main-player/lyrics/editor/$songId',
-      params: { songId: currentSongData.songId },
+      params: { songId: String(currentSongData.songId) },
       search: {
         songTitle: currentSongData.title,
         isEditingEnhancedSyncedLyrics:
@@ -637,4 +637,3 @@ function LyricsPage() {
     </MainContainer>
   );
 }
-

@@ -4,9 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { AppUpdateContext } from '../../../contexts/AppUpdateContext';
 import Button from '../../Button';
 import Hyperlink from '../../Hyperlink';
-import { type LyricData } from '../../LyricsEditingPage/LyricsEditingPage';
 import useNetworkConnectivity from '../../../hooks/useNetworkConnectivity';
-import parseLyrics from '../../../../../common/parseLyrics';
 import isLyricsSynced, { isLyricsEnhancedSynced } from '../../../../../common/isLyricsSynced';
 import { useQuery } from '@tanstack/react-query';
 import { settingsQuery } from '@renderer/queries/settings';
@@ -42,7 +40,7 @@ const SongLyricsEditorInput = (props: Props) => {
 
   const {
     songTitle,
-    songId,
+    // songId,
     songArtists,
     synchronizedLyrics,
     unsynchronizedLyrics,
@@ -180,15 +178,14 @@ const SongLyricsEditorInput = (props: Props) => {
 
   const goToLyricsEditor = useCallback(() => {
     if (synchronizedLyrics || unsynchronizedLyrics) {
-      const lyrics = currentLyricsType === 'synced' ? synchronizedLyrics : unsynchronizedLyrics;
-      let lines: LyricData[] = [];
-      const { parsedLyrics } = parseLyrics(lyrics as string);
+      // const lyrics = currentLyricsType === 'synced' ? synchronizedLyrics : unsynchronizedLyrics;
+      // const { parsedLyrics } = parseLyrics(lyrics as string);
 
-      lines = parsedLyrics.map((lyric) => ({
-        text: lyric.originalText,
-        start: lyric.start,
-        end: lyric.end
-      }));
+      // const lines: LyricData[] = parsedLyrics.map((lyric) => ({
+      //   text: lyric.originalText,
+      //   start: lyric.start,
+      //   end: lyric.end
+      // }));
 
       // TODO: Implement lyrics editor page navigation
       // changeCurrentActivePage('LyricsEditor', {
@@ -198,7 +195,7 @@ const SongLyricsEditorInput = (props: Props) => {
       //   isEditingEnhancedSyncedLyrics: currentLyricsType === 'synced' && isLyricsEnhancedSynced
       // });
     }
-  }, [currentLyricsType, songId, songTitle, synchronizedLyrics, unsynchronizedLyrics]);
+  }, [synchronizedLyrics, unsynchronizedLyrics]);
 
   return (
     <div className="song-lyrics-editor-container col-span-2 grid w-[95%] grid-cols-[minmax(50%,65%)_1fr] gap-8">

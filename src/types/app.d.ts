@@ -287,39 +287,39 @@ declare global {
   // node-id3 synchronisedLyrics types.
   type UnsynchronisedLyrics =
     | {
-        language: string;
-        text: string;
-      }
+      language: string;
+      text: string;
+    }
     | undefined;
 
   type SynchronisedLyrics =
     | Array<{
+      /**
+       * 3 letter ISO 639-2 language code, for example: eng
+       * @see {@link https://id3.org/ISO%20639-2 ISO 639-2}
+       */
+      language: string;
+      /**
+       * Absolute time unit:
+       * {@link TagConstants.TimeStampFormat}
+       */
+      timeStampFormat: number;
+      /**
+       * {@link TagConstants.SynchronisedLyrics.ContentType}
+       */
+      contentType: number;
+      /**
+       * Content descriptor
+       */
+      shortText?: string;
+      synchronisedText: Array<{
+        text: string;
         /**
-         * 3 letter ISO 639-2 language code, for example: eng
-         * @see {@link https://id3.org/ISO%20639-2 ISO 639-2}
+         * Absolute time in unit according to `timeStampFormat`.
          */
-        language: string;
-        /**
-         * Absolute time unit:
-         * {@link TagConstants.TimeStampFormat}
-         */
-        timeStampFormat: number;
-        /**
-         * {@link TagConstants.SynchronisedLyrics.ContentType}
-         */
-        contentType: number;
-        /**
-         * Content descriptor
-         */
-        shortText?: string;
-        synchronisedText: Array<{
-          text: string;
-          /**
-           * Absolute time in unit according to `timeStampFormat`.
-           */
-          timeStamp: number;
-        }>;
-      }>
+        timeStamp: number;
+      }>;
+    }>
     | undefined;
 
   interface LyricsMetadataFromShortText {
@@ -330,7 +330,7 @@ declare global {
 
   interface Queue {
     currentSongIndex: number | null;
-    queue: number[];
+    songIds: number[];
     queueBeforeShuffle?: number[];
     queueId?: string;
     queueType: QueueTypes;
@@ -448,7 +448,7 @@ declare global {
     lastFmSessionKey: string | null;
   }
 
-  interface UserData extends UserSettings {}
+  interface UserData extends UserSettings { }
 
   type LanguageCodes = NoInfer<keyof typeof resources>;
 
@@ -608,9 +608,9 @@ declare global {
   }
 
   interface IgnoredDuplicates {
-    artists: string[];
-    albums: string[];
-    genres: string[];
+    artists: number[];
+    albums: number[];
+    genres: number[];
   }
 
   interface SortingStates {
@@ -680,8 +680,8 @@ declare global {
     preferences: Preferences;
     playback: Playback;
     queue: PlayerQueueJson;
-    ignoredSeparateArtists: string[];
-    ignoredSongsWithFeatArtists: string[];
+    ignoredSeparateArtists: number[];
+    ignoredSongsWithFeatArtists: number[];
     ignoredDuplicates: IgnoredDuplicates;
     sortingStates: SortingStates;
     equalizerPreset: Equalizer;
@@ -692,7 +692,7 @@ declare global {
   // ? Playlists related types
 
   interface SavablePlaylist {
-    playlistId: 'Favorites' | 'History' | string;
+    playlistId: number;
     name: string;
     /** song ids of the songs in the playlist */
     songs: number[];
@@ -999,7 +999,7 @@ declare global {
 
   interface MultipleSelectionData {
     isEnabled: boolean;
-    multipleSelections: string[];
+    multipleSelections: number[];
     selectionType?: QueueTypes;
   }
 
@@ -1341,7 +1341,7 @@ declare global {
   }
 
   type Routes = 'lyrics-editor';
-  type LyricsEditorRouteState = { songId: string; lyrics?: LyricData[] };
+  type LyricsEditorRouteState = { songId: number; lyrics?: LyricData[] };
   interface RouteStates {
     'lyrics-editor': LyricsEditorRouteState;
   }

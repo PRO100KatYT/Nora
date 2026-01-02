@@ -21,7 +21,7 @@ export const Route = createFileRoute('/main-player/genres/$genreId')({
   validateSearch: songSearchSchema,
   component: GenreInfoPage,
   loader: async ({ params }) => {
-    await queryClient.ensureQueryData(genreQuery.single({ genreId: params.genreId }));
+    await queryClient.ensureQueryData(genreQuery.single({ genreId: Number(params.genreId) }));
   }
 });
 
@@ -34,7 +34,9 @@ function GenreInfoPage() {
 
   const { t } = useTranslation();
   const navigate = useNavigate({ from: Route.fullPath });
-  const { genreId } = Route.useParams();
+  const { genreId } = Route.useParams({
+    select: (params) => ({ genreId: Number(params.genreId) })
+  });
   const {
     scrollTopOffset,
     sortingOrder = 'aToZ',
@@ -56,7 +58,7 @@ function GenreInfoPage() {
   const selectAllHandler = useSelectAllHandler(genreSongs, 'songs', 'songId');
 
   const handleSongPlayBtnClick = useCallback(
-    (currSongId: string) => {
+    (currSongId: number) => {
       const queueSongIds = genreSongs
         .filter((song) => !song.isBlacklisted)
         .map((song) => song.songId);
@@ -111,13 +113,13 @@ function GenreInfoPage() {
             clickHandler: () => {
               updateQueueData(
                 undefined,
-                [...queue.queue, ...genreSongs.map((song) => song.songId)],
+                [...queue.songIds, ...genreSongs.map((song) => song.songId)],
                 false,
                 false
               );
               addNewNotifications([
                 {
-                  id: genreData?.genreId || '',
+                  id: String(genreData?.genreId || ''),
                   duration: 5000,
                   content: t('notifications.addedToQueue', {
                     count: genreSongs.length
@@ -181,4 +183,3 @@ function GenreInfoPage() {
     </MainContainer>
   );
 }
-

@@ -363,24 +363,26 @@ const folderData = {
 // $ ARTISTS DATA
 const artistsData = {
   getArtistData: (
-    artistIdsOrNames?: string[],
+    artistIdsOrNames?: (string | number)[],
     sortType?: ArtistSortTypes,
     filterType?: ArtistFilterTypes,
     start?: number,
     end?: number,
     limit?: number
-  ): Promise<PaginatedResult<Artist, ArtistSortTypes>> =>
-    ipcRenderer.invoke(
+  ): Promise<PaginatedResult<Artist, ArtistSortTypes>> => {
+    const stringIds = artistIdsOrNames?.map(String);
+    return ipcRenderer.invoke(
       'app/getArtistData',
-      artistIdsOrNames,
+      stringIds,
       sortType,
       filterType,
       start,
       end,
       limit
-    ),
+    );
+  },
   toggleLikeArtists: (
-    artistIds: string[],
+    artistIds: number[],
     likeArtist?: boolean
   ): Promise<ToggleLikeSongReturnValue | undefined> =>
     ipcRenderer.invoke('app/toggleLikeArtists', artistIds, likeArtist),
@@ -391,23 +393,27 @@ const artistsData = {
 // $ GENRES DATA
 const genresData = {
   getGenresData: (
-    genreNamesOrIds?: string[],
+    genreNamesOrIds?: (string | number)[],
     sortType?: GenreSortTypes,
     start?: number,
     end?: number
-  ): Promise<PaginatedResult<Genre, GenreSortTypes>> =>
-    ipcRenderer.invoke('app/getGenresData', genreNamesOrIds, sortType, start, end)
+  ): Promise<PaginatedResult<Genre, GenreSortTypes>> => {
+    const stringIds = genreNamesOrIds?.map(String);
+    return ipcRenderer.invoke('app/getGenresData', stringIds, sortType, start, end);
+  }
 };
 
 // $ ALBUMS DATA
 const albumsData = {
   getAlbumData: (
-    albumTitlesOrIds?: string[],
+    albumTitlesOrIds?: (string | number)[],
     sortType?: AlbumSortTypes,
     start?: number,
     end?: number
-  ): Promise<PaginatedResult<Album, AlbumSortTypes>> =>
-    ipcRenderer.invoke('app/getAlbumData', albumTitlesOrIds, sortType, start, end),
+  ): Promise<PaginatedResult<Album, AlbumSortTypes>> => {
+    const stringIds = albumTitlesOrIds?.map(String);
+    return ipcRenderer.invoke('app/getAlbumData', stringIds, sortType, start, end);
+  },
   getAlbumInfoFromLastFM: (albumId: number): Promise<LastFMAlbumInfo | undefined> =>
     ipcRenderer.invoke('app/getAlbumInfoFromLastFM', albumId)
 };
@@ -415,7 +421,7 @@ const albumsData = {
 // $ PLAYLIST DATA AND CONTROLS
 const playlistsData = {
   getPlaylistData: (
-    playlistIds?: string[],
+    playlistIds?: number[],
     sortType?: PlaylistSortTypes,
     start?: number,
     end?: number,
@@ -446,7 +452,7 @@ const playlistsData = {
     ipcRenderer.invoke('app/renameAPlaylist', playlistId, newName),
   removeSongFromPlaylist: (playlistId: number, songId: number): PromiseFunctionReturn =>
     ipcRenderer.invoke('app/removeSongFromPlaylist', playlistId, songId),
-  removePlaylists: (playlistIds: string[]) =>
+  removePlaylists: (playlistIds: number[]) =>
     ipcRenderer.invoke('app/removePlaylists', playlistIds),
   getArtworksForMultipleArtworksCover: (
     songIds: number[]

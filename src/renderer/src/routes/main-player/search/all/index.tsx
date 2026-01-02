@@ -71,11 +71,28 @@ function RouteComponent() {
               }`}
               values={{
                 query: keyword,
-                filter: t(
-                  `common.${
-                    selectedType === undefined || selectedType === 'songs' ? 'song' : selectedType
-                  }_other`
-                )
+                filter: (() => {
+                  switch (selectedType) {
+                    case 'artist':
+                      return t('common.artist_other');
+                    case 'playlist':
+                      return t('common.playlist_other');
+                    case 'album':
+                      return t('common.album_other');
+                    case 'genre':
+                      return t('common.genre_other');
+                    case 'folder':
+                      return t('common.folder_other');
+                    case 'favorites':
+                      return t('playlistsPage.favorites');
+                    case 'history':
+                      return t('playlistsPage.history');
+
+                    // For song and other types
+                    default:
+                      return t('common.song_other');
+                  }
+                })()
               }}
               components={{
                 span: (
@@ -107,4 +124,3 @@ function RouteComponent() {
     </MainContainer>
   );
 }
-

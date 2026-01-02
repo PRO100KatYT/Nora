@@ -57,7 +57,7 @@ function FavoritesPlaylistInfoPage() {
   const selectAllHandler = useSelectAllHandler(favoriteSongs, 'songs', 'songId');
 
   const handleSongPlayBtnClick = useCallback(
-    (currSongId: string) => {
+    (currSongId: number) => {
       const queueSongIds = favoriteSongs
         .filter((song) => !song.isBlacklisted)
         .map((song) => song.songId);
@@ -99,7 +99,7 @@ function FavoritesPlaylistInfoPage() {
     const validSongIds = favoriteSongs
       .filter((song) => !song.isBlacklisted)
       .map((song) => song.songId);
-    updateQueueData(undefined, [...queue.queue, ...validSongIds]);
+    updateQueueData(undefined, [...queue.songIds, ...validSongIds]);
     addNewNotifications([
       {
         id: `addedToQueue`,
@@ -109,7 +109,7 @@ function FavoritesPlaylistInfoPage() {
         })
       }
     ]);
-  }, [addNewNotifications, favoriteSongs, queue.queue, t, updateQueueData]);
+  }, [addNewNotifications, favoriteSongs, queue.songIds, t, updateQueueData]);
 
   const shuffleAndPlaySongs = useCallback(
     () =>

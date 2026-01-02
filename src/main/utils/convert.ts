@@ -99,7 +99,7 @@ export const convertToAlbum = (album: GetAllAlbumsReturnType[number]) => {
 export const convertToPlaylist = (playlist: GetAllPlaylistsReturnType['data'][number]) => {
   const artworks = playlist.artworks.map((a) => a.artwork);
   return {
-    playlistId: String(playlist.id),
+    playlistId: playlist.id,
     name: playlist.name,
     artworkPaths: parsePlaylistArtworks(artworks),
     songs: playlist.songs.map((s) => s.song.id),

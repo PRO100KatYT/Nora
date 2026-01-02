@@ -152,12 +152,12 @@ class AudioPlayer extends EventEmitter {
    * @returns Promise resolving to the song data
    */
   private async loadSong(
-    songIdOrData: string | AudioPlayerData,
+    songIdOrData: number | AudioPlayerData,
     options?: { autoPlay?: boolean; updateStore?: boolean }
   ): Promise<AudioPlayerData> {
     let songData: AudioPlayerData;
 
-    if (typeof songIdOrData === 'string') {
+    if (typeof songIdOrData === 'number') {
       // Fetch song data if ID provided
       songData = await window.api.audioLibraryControls.getSong(songIdOrData);
     } else {
@@ -399,7 +399,7 @@ class AudioPlayer extends EventEmitter {
    * @returns Promise that resolves when song is loaded and optionally playing
    */
   async playSongById(
-    songId: string,
+    songId: number,
     options: {
       autoPlay?: boolean;
       recordListening?: boolean;
@@ -568,7 +568,7 @@ class AudioPlayer extends EventEmitter {
   /**
    * Gets the current song ID from the queue.
    */
-  get currentSongId(): string | null {
+  get currentSongId(): number | null {
     return this.queue.currentSongId;
   }
 
