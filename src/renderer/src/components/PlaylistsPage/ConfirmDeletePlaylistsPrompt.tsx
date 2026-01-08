@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { AppUpdateContext } from '../../contexts/AppUpdateContext';
 
 import Button from '../Button';
-import { SpecialPlaylists } from 'src/common/playlists.enum';
+import { SpecialPlaylists } from '@common/playlists.enum';
 
 interface ConfirmDeletePlaylistProp {
   playlistIds: number[];

@@ -15,7 +15,7 @@ import { useStore } from '@tanstack/react-store';
 import { useCallback, useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import historyPlaylistCoverImage from '../../../assets/images/webp/history-playlist-icon.webp';
-import { SpecialPlaylists } from 'src/common/playlists.enum';
+import { SpecialPlaylists } from '@common/playlists.enum';
 export const Route = createFileRoute('/main-player/playlists/history')({
   validateSearch: songSearchSchema,
   component: HistoryPlaylistInfoPage

@@ -15,6 +15,7 @@ import { useStore } from '@tanstack/react-store';
 import { useCallback, useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import favoritesPlaylistCoverImage from '../../../assets/images/webp/favorites-playlist-icon.webp';
+import { SpecialPlaylists } from '../../../../../common/playlists.enum';
 
 export const Route = createFileRoute('/main-player/playlists/favorites')({
   validateSearch: songSearchSchema,
@@ -22,7 +23,7 @@ export const Route = createFileRoute('/main-player/playlists/favorites')({
 });
 
 const playlistData: Playlist = {
-  playlistId: 'favorites',
+  playlistId: SpecialPlaylists.Favorites, // Special ID for Favorites playlist
   name: 'Favorites',
   artworkPaths: {
     artworkPath: favoritesPlaylistCoverImage,

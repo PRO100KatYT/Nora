@@ -9,7 +9,7 @@ import type {
 } from '../../../types/last_fm_album_info_api';
 import { getSongsByNames } from '@main/db/queries/songs';
 import { getAlbumById } from '@main/db/queries/albums';
-import { convertToAlbum, convertToSongData } from '../../../common/convert';
+import { convertToAlbum, convertToSongData } from '@main/utils/convert';
 
 const sortTracks = (a: ParsedAlbumTrack, b: ParsedAlbumTrack) => {
   if (a.rank > b.rank) return 1;

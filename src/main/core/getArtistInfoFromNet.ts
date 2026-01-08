@@ -8,7 +8,7 @@ import getArtistInfoFromLastFM from '../other/lastFm/getArtistInfoFromLastFM';
 import type { DeezerArtistInfo, DeezerArtistInfoApi } from '../../types/deezer_api';
 import type { SimilarArtist } from '../../types/last_fm_artist_info_api';
 import { getArtistById, getArtistsByName } from '@main/db/queries/artists';
-import { convertToArtist } from '../../common/convert';
+import { convertToArtist } from '../utils/convert';
 import { linkArtworksToArtist, saveArtworks } from '@main/db/queries/artworks';
 import { db } from '@main/db/db';
 

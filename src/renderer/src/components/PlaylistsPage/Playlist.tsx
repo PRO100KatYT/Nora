@@ -12,7 +12,7 @@ import { useStore } from '@tanstack/react-store';
 import { store } from '@renderer/store/store';
 import { useNavigate } from '@tanstack/react-router';
 import NavLink from '../NavLink';
-import { SpecialPlaylists } from 'src/common/playlists.enum';
+import { SpecialPlaylists } from '@common/playlists.enum';
 
 const ConfirmDeletePlaylistsPrompt = lazy(() => import('./ConfirmDeletePlaylistsPrompt'));
 const RenamePlaylistPrompt = lazy(() => import('./RenamePlaylistPrompt'));

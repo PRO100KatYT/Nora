@@ -4,7 +4,7 @@ import { checkIfConnectedToInternet } from '../../main';
 import generateApiRequestBodyForLastFMPostRequests from './generateApiRequestBodyForLastFMPostRequests';
 import getLastFmAuthData from './getLastFMAuthData';
 import { getSongById } from '@main/db/queries/songs';
-import { convertToSongData } from '../../../common/convert';
+import { convertToSongData } from '@main/utils/convert';
 import { getUserSettings } from '@main/db/queries/settings';
 
 const scrobbleSong = async (songId: number, startTimeInSecs: number) => {

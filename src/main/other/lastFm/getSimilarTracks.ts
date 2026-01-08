@@ -7,7 +7,7 @@ import type {
 } from '../../../types/last_fm_similar_tracks_api';
 import { checkIfConnectedToInternet } from '../../main';
 import { getSongById, getSongsByNames } from '@main/db/queries/songs';
-import { convertToSongData } from '../../../common/convert';
+import { convertToSongData } from '@main/utils/convert';
 
 const sortSimilarTracks = (a: ParsedSimilarTrack, b: ParsedSimilarTrack) => {
   if (a.match > b.match) return -1;

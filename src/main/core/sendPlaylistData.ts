@@ -1,5 +1,5 @@
 import { getAllPlaylists } from '@main/db/queries/playlists';
-import { convertToPlaylist } from '../../common/convert';
+import { convertToPlaylist } from '../utils/convert';
 
 const sendPlaylistData = async (
   playlistIds = [] as string[],

@@ -10,7 +10,7 @@ import Button from '../Button';
 import Img from '../Img';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { playlistQuery } from '@renderer/queries/playlists';
-import { SpecialPlaylists } from 'src/common/playlists.enum';
+import { SpecialPlaylists } from '@common/playlists.enum';
 
 interface AddSongsToPlaylistProp {
   songIds: number[];

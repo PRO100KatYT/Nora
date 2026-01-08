@@ -24,7 +24,7 @@ import manageGenresOfParsedSong from './manageGenresOfParsedSong';
 import { generatePalettes } from '../other/generatePalette';
 import manageAlbumArtistOfParsedSong from './manageAlbumArtistOfParsedSong';
 import { getSongByPath, updateSongByPath } from '@main/db/queries/songs';
-import { convertToSongData } from '../../common/convert';
+import { convertToSongData } from '@main/utils/convert';
 import { db } from '@main/db/db';
 import { linkArtworksToSong } from '@main/db/queries/artworks';
 import type { songs } from '@main/db/schema';

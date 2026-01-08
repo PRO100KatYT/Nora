@@ -13,9 +13,9 @@ type CurrentLyricsTYpe = 'synced' | 'unsynced';
 
 type Props = {
   songTitle: string;
-  songId: string;
+  songId: number;
   songArtists?: {
-    artistId?: string | undefined;
+    artistId?: number | undefined;
     name: string;
     artworkPath?: string | undefined;
     onlineArtworkPaths?: OnlineArtistArtworks | undefined;
@@ -180,13 +180,11 @@ const SongLyricsEditorInput = (props: Props) => {
     if (synchronizedLyrics || unsynchronizedLyrics) {
       // const lyrics = currentLyricsType === 'synced' ? synchronizedLyrics : unsynchronizedLyrics;
       // const { parsedLyrics } = parseLyrics(lyrics as string);
-
       // const lines: LyricData[] = parsedLyrics.map((lyric) => ({
       //   text: lyric.originalText,
       //   start: lyric.start,
       //   end: lyric.end
       // }));
-
       // TODO: Implement lyrics editor page navigation
       // changeCurrentActivePage('LyricsEditor', {
       //   lyrics: lines,
