@@ -53,7 +53,11 @@ export const tryToParseSong = (
               error,
             },
           );
-          timeOutId = setTimeout(() => tryParseSong(errRetryCount + 1), 5000);
+          timeOutId = setTimeout(() => {
+            tryParseSong(errRetryCount + 1).catch(() => {
+              // Error will be handled in the recursive call
+            });
+          }, 5000);
         } else {
           logger.debug(
             `Failed to parse a newly added song while the app is open. Failed 5 of 5 retry efforts.`,
