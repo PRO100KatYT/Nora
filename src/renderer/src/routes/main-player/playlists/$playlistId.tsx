@@ -16,6 +16,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useStore } from '@tanstack/react-store';
 import { lazy, useCallback, useContext } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SpecialPlaylists } from '@common/playlists.enum';
 
 const SensitiveActionConfirmPrompt = lazy(
   () => import('@renderer/components/SensitiveActionConfirmPrompt')
@@ -25,12 +26,16 @@ export const Route = createFileRoute('/main-player/playlists/$playlistId')({
   validateSearch: songSearchSchema,
   component: PlaylistInfoPage,
   loader: async ({ params }) => {
-    await queryClient.ensureQueryData(playlistQuery.single({ playlistId: params.playlistId }));
+    await queryClient.ensureQueryData(
+      playlistQuery.single({ playlistId: Number(params.playlistId) })
+    );
   }
 });
 
 function PlaylistInfoPage() {
-  const { playlistId } = Route.useParams();
+  const { playlistId } = Route.useParams({
+    select: (params) => ({ playlistId: Number(params.playlistId) })
+  });
   const { scrollTopOffset } = Route.useSearch();
 
   const queue = useStore(store, (state) => state.localStorage.queue);
@@ -61,7 +66,7 @@ function PlaylistInfoPage() {
   const selectAllHandler = useSelectAllHandler(playlistSongs, 'songs', 'songId');
 
   const handleSongPlayBtnClick = useCallback(
-    (currSongId: string) => {
+    (currSongId: number) => {
       const queueSongIds = playlistSongs
         .filter((song) => !song.isBlacklisted)
         .map((song) => song.songId);
@@ -103,7 +108,7 @@ function PlaylistInfoPage() {
     const validSongIds = playlistSongs
       .filter((song) => !song.isBlacklisted)
       .map((song) => song.songId);
-    updateQueueData(undefined, [...queue.queue, ...validSongIds]);
+    updateQueueData(undefined, [...queue.songIds, ...validSongIds]);
     addNewNotifications([
       {
         id: `addedToQueue`,
@@ -113,7 +118,7 @@ function PlaylistInfoPage() {
         })
       }
     ]);
-  }, [addNewNotifications, playlistSongs, queue.queue, t, updateQueueData]);
+  }, [addNewNotifications, playlistSongs, queue.songIds, t, updateQueueData]);
 
   const shuffleAndPlaySongs = useCallback(
     () =>
@@ -158,7 +163,7 @@ function PlaylistInfoPage() {
             label: t('settingsPage.clearHistory'),
             iconName: 'clear',
             clickHandler: clearSongHistory,
-            isVisible: playlistData.playlistId === 'History',
+            isVisible: playlistData.playlistId === SpecialPlaylists.History,
             isDisabled: !(playlistData.songs && playlistData.songs.length > 0)
           },
           {
@@ -260,4 +265,3 @@ function PlaylistInfoPage() {
     </MainContainer>
   );
 }
-

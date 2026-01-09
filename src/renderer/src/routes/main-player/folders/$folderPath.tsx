@@ -113,7 +113,7 @@ function MusicFolderInfoPage() {
   const selectAllHandler = useSelectAllHandler(folderSongs, 'songs', 'songId');
 
   const handleSongPlayBtnClick = useCallback(
-    (currSongId?: string, shuffleQueue = false, startPlaying = false) => {
+    (currSongId?: number, shuffleQueue = false, startPlaying = false) => {
       const queueSongIds = folderSongs
         .filter((song) => !song.isBlacklisted)
         .map((song) => song.songId);

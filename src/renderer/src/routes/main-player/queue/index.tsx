@@ -363,7 +363,7 @@ function RouteComponent() {
                       }}
                       itemContent={(index, song) => {
                         return (
-                          <Draggable draggableId={song.songId} index={index} key={song.songId}>
+                          <Draggable draggableId={String(song.songId)} index={index} key={song.songId}>
                             {(provided) => {
                               const { multipleSelections: songIds } = multipleSelectionsData;
                               const isMultipleSelectionsEnabled =

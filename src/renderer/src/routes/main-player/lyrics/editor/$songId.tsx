@@ -51,7 +51,7 @@ function LyricsEditingPage() {
 
   const { changePromptMenuData, playSong, updateContextMenuData } = useContext(AppUpdateContext);
   const { t } = useTranslation();
-  const { songId } = Route.useParams();
+  const { songId } = Route.useParams({ select: (params) => ({ songId: Number(params.songId) }) });
   const { songTitle, isEditingEnhancedSyncedLyrics } = Route.useSearch();
 
   const lyrics = useStore(routeStateStore, (state) => {
@@ -437,4 +437,3 @@ function LyricsEditingPage() {
     </MainContainer>
   );
 }
-
