@@ -62,7 +62,10 @@ class AudioPlayer extends EventEmitter {
         pendingAutoPlay: this.pendingAutoPlay
       });
       if (songId) {
-        this.loadSong(songId, { autoPlay: this.pendingAutoPlay });
+        this.loadSong(songId, { autoPlay: this.pendingAutoPlay }).catch((err) => {
+          console.error('[AudioPlayer.positionChange] Failed to load song:', err);
+          // Error will be handled by error event listener
+        });
         this.pendingAutoPlay = false; // Reset after use
       }
     });
