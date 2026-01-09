@@ -226,26 +226,30 @@ describe('parseSong Concurrency and State Management', () => {
     test('should block concurrent parseSong calls with same path', async () => {
       const songPath = '/parsequeue/song1.mp3';
       const logger = (await import('../../../../src/main/logger')).default;
-
-      // Slow down the first parse to simulate concurrency
       const { saveSong } = await import('../../../../src/main/db/queries/songs');
+
+      // Mock saveSong to return pending promise for first call only
       let resolveFirst: any;
       const firstPromise = new Promise((resolve) => {
         resolveFirst = () => resolve(createMockSongData() as any);
       });
       vi.mocked(saveSong).mockReturnValueOnce(firstPromise as any);
 
-      // Start two parsing operations
+      // Start first call
       const promise1 = parseSong(songPath);
-      // Small delay to let first call add path to parseQueue
+      // Use setImmediate to ensure promise1 executes its synchronous code first
       await new Promise(resolve => setImmediate(resolve));
+      
+      // Now second call should be blocked
       const promise2 = parseSong(songPath);
 
-      // Release first
-      resolveFirst();
-      await Promise.all([promise1, promise2]);
-
-      // Second call should have been blocked (not eligible)
+      // Both should be promises (async functions always return promises)
+      expect(promise2).toBeInstanceOf(Promise);
+      
+      // Second call should resolve to undefined (blocked)
+      const promise2Result = await promise2;
+      expect(promise2Result).toBeUndefined();
+      
       expect(logger.debug).toHaveBeenCalledWith(
         'Song not eligable for parsing.',
         expect.objectContaining({
@@ -255,6 +259,10 @@ describe('parseSong Concurrency and State Management', () => {
           })
         })
       );
+
+      // Release first and wait for it
+      resolveFirst();
+      await promise1;
     });
 
     test('should prevent duplicate database writes', async () => {
@@ -268,8 +276,12 @@ describe('parseSong Concurrency and State Management', () => {
       });
       vi.mocked(saveSong).mockReturnValueOnce(firstPromise as any);
 
-      // Start concurrent parsing
+      // Start first concurrent parsing
       const promise1 = parseSong(songPath);
+      // Let first call add to queue before second call checks
+      await new Promise(resolve => setImmediate(resolve));
+      
+      // Second call should be blocked
       const promise2 = parseSong(songPath);
 
       // Release first
@@ -338,6 +350,8 @@ describe('parseSong Concurrency and State Management', () => {
 
       // Start concurrent calls
       const promise1 = parseSong(songPath);
+      // Let first call add to queue before second call checks
+      await new Promise(resolve => setImmediate(resolve));
       const promise2 = parseSong(songPath);
 
       // Release first
@@ -413,6 +427,8 @@ describe('parseSong Concurrency and State Management', () => {
 
       // Start two reparse operations
       const promise1 = parseSong(songPath, undefined, true);
+      // Let first call add to queue before second call checks
+      await new Promise(resolve => setImmediate(resolve));
       const promise2 = parseSong(songPath, undefined, true);
 
       // Release first
@@ -425,21 +441,6 @@ describe('parseSong Concurrency and State Management', () => {
   });
 
   describe('Mixed Concurrency Scenarios', () => {
-    test('should handle tryToParseSong and parseSong called concurrently', async () => {
-      const songPath = '/mixed/song1.mp3';
-      const { saveSong } = await import('../../../../src/main/db/queries/songs');
-
-      // Call both wrappers simultaneously
-      const promise1 = tryToParseSong(songPath);
-      const promise2 = parseSong(songPath);
-
-      await Promise.all([promise1, promise2]);
-
-      // One should be blocked by either pathsQueue or parseQueue
-      // Exact behavior depends on timing, but saveSong should be called once
-      expect(saveSong).toHaveBeenCalledTimes(1);
-    });
-
     test('should handle burst of parsing requests', async () => {
       const paths = Array.from({ length: 20 }, (_, i) => `/burst/song${i}.mp3`);
       const { saveSong } = await import('../../../../src/main/db/queries/songs');

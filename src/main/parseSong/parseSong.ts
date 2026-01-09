@@ -60,6 +60,7 @@ export const tryToParseSong = (
             messageCode: 'PARSE_FAILED',
             data: { name: songFileName }
           });
+          pathsQueue.delete(songPath);
           throw error;
         }
       }
@@ -87,6 +88,18 @@ export const parseSong = async (
   // const start = timeStart();
   logger.debug(`Starting the parsing process of song '${path.basename(absoluteFilePath)}'.`);
 
+  // Check if already parsing this file (prevents concurrent parses of same file)
+  const isSongInParseQueue = parseQueue.has(absoluteFilePath);
+  if (isSongInParseQueue) {
+    logger.debug('Song not eligable for parsing.', {
+      absoluteFilePath,
+      reason: {
+        isSongInParseQueue
+      }
+    });
+    return undefined;
+  }
+
   // const start1 = timeEnd(start, 'Time to fetch songs,artists,albums,genres');
 
   try {
@@ -109,9 +122,8 @@ export const parseSong = async (
     // const start2 = timeEnd(start1, 'Time to fetch stats and parse metadata');
 
     const isSongAvailable = await isSongWithPathAvailable(absoluteFilePath);
-    const isSongInParseQueue = parseQueue.has(absoluteFilePath);
     const isSongEligibleForParsing =
-      metadata && (reparseToSync || !isSongAvailable) && !isSongInParseQueue;
+      metadata && (reparseToSync || !isSongAvailable);
 
     if (isSongEligibleForParsing) {
       parseQueue.add(absoluteFilePath);
@@ -293,8 +305,7 @@ export const parseSong = async (
     logger.debug('Song not eligable for parsing.', {
       absoluteFilePath,
       reason: {
-        isSongArrayAvailable: true,
-        isSongInParseQueue
+        isSongArrayAvailable: true
       }
     });
     return undefined;
